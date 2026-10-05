@@ -152,6 +152,7 @@ export default function Clients() {
                 <th>Client Name</th>
                 <th>PAN Number</th>
                 <th>Email ID</th>
+                <th>Mobile Number</th>
                 <th>Current Stage</th>
                 <th>KYC Status</th>
                 <th>CVL KRA</th>
@@ -174,6 +175,7 @@ export default function Clients() {
                   <td>{orNa(r.client_name)}</td>
                   <td><CopyableCell value={r.pan_number} /></td>
                   <td>{orNa(r.email)}</td>
+                  <td><CopyableCell value={r.mobile_number} /></td>
                   <td>{formatLabel(r.current_stage)}</td>
                   <td><StatusPill value={r.kyc_status} /></td>
                   <td><StatusPill value={r.cvlkra_push_status} /></td>
