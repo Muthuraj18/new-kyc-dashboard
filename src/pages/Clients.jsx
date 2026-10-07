@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Layout from '../components/Layout';
 import CopyableCell from '../components/CopyableCell';
@@ -27,6 +28,7 @@ export default function Clients() {
   const [error, setError] = useState('');
   const [modalState, setModalState] = useState(null); // { record, readOnly }
   const features = useFeatures();
+  const navigate = useNavigate();
 
   useEffect(() => {
     api.get('/clients/filters').then(({ data }) => setFilterOptions(data)).catch(() => {});
@@ -167,7 +169,15 @@ export default function Clients() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id}>
+                <tr
+                  key={r.id}
+                  className="clickable-row"
+                  onClick={(e) => {
+                    // Copy / Actions / Check PDF buttons handle their own clicks.
+                    if (e.target.closest('button, a, .actions-wrap')) return;
+                    navigate(`/clients/${r.id}`);
+                  }}
+                >
                   <td>{formatDate(r.created_at)}</td>
                   <td>{orNa(r.application_id)}</td>
                   <td>{orNa(r.kyc_type)}</td>

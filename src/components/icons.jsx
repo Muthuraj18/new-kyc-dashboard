@@ -92,3 +92,65 @@ export const GearIcon = (props) => (
     <path d="M19.4 13a7.6 7.6 0 000-2l2-1.6-2-3.5-2.4.7a7.6 7.6 0 00-1.7-1l-.4-2.5H10.1l-.4 2.5a7.6 7.6 0 00-1.7 1l-2.4-.7-2 3.5L5.6 11a7.6 7.6 0 000 2l-2 1.6 2 3.5 2.4-.7a7.6 7.6 0 001.7 1l.4 2.5h3.8l.4-2.5a7.6 7.6 0 001.7-1l2.4.7 2-3.5z" />
   </svg>
 );
+
+// ---- Client detail page (pin, preview toolbar, info, caret) ----
+export const PinIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="ui-icon" {...base} {...props}>
+    <path d="M14 4l6 6-3 1-4 4-1 4-6-6 4-1 4-4z" />
+    <path d="M9 15l-5 5" />
+  </svg>
+);
+
+export const ZoomInIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="ui-icon" {...base} {...props}>
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="M20 20l-4.2-4.2M11 8v6M8 11h6" />
+  </svg>
+);
+
+export const ZoomOutIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="ui-icon" {...base} {...props}>
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="M20 20l-4.2-4.2M8 11h6" />
+  </svg>
+);
+
+export const RotateLeftIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="ui-icon" {...base} {...props}>
+    <path d="M4 5v5h5" />
+    <path d="M5.5 15a7 7 0 1 0 1-7.5L4 10" />
+  </svg>
+);
+
+export const RotateRightIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="ui-icon" {...base} {...props}>
+    <path d="M20 5v5h-5" />
+    <path d="M18.5 15a7 7 0 1 1-1-7.5L20 10" />
+  </svg>
+);
+
+export const ExpandIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="ui-icon" {...base} {...props}>
+    <path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7" />
+  </svg>
+);
+
+export const InfoIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="ui-icon" {...base} {...props}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5M12 8h.01" />
+  </svg>
+);
+
+export const CaretDownIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="ui-icon" fill="currentColor" {...props}>
+    <path d="M6 9h12l-6 7z" />
+  </svg>
+);
+
+export const PencilIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="ui-icon" {...base} {...props}>
+    <path d="M4 20h4L19 9l-4-4L4 16z" />
+    <path d="M13.5 6.5l4 4" />
+  </svg>
+);
