@@ -46,6 +46,16 @@ const MODULES = [
     ],
   },
   {
+    key: 'incometax',
+    label: 'Income-tax details',
+    fields: [
+      { label: 'Itr Name', key: 'itr_name' },
+      { label: 'Itr Last Name', key: 'itr_last_name' },
+      { label: 'Category', key: 'category' },
+      { label: 'Aadhaar Seeding Status', key: 'aadhaar_seeding_status' },
+    ],
+  },
+  {
     key: 'digilocker',
     label: 'Digilocker',
     fields: [
