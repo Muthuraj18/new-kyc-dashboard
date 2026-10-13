@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../api';
 import Layout from '../components/Layout';
+import ReasonModal from '../components/ReasonModal';
 import {
   PinIcon,
   ZoomInIcon,
@@ -191,8 +192,6 @@ const DOCUMENTS = [
 ];
 
 const NOT_CONNECTED = 'Not connected to the backend yet.';
-const PDF_NOT_CONNECTED = 'Photo saved. PDF regeneration is not connected yet: the KYC PDF is built by the '
-  + 'onboarding app, so the PDF still shows the previous photo.';
 
 // Clockwise preview rotation (any multiple of 90) -> 0/90/180/270.
 const normalizeRotation = (deg) => ((deg % 360) + 360) % 360;
@@ -209,6 +208,7 @@ export default function ClientDetail() {
   const [rotation, setRotation] = useState(0);
   const [notice, setNotice] = useState(null); // { text, error }
   const [busy, setBusy] = useState(''); // '' | 'save' | 'generate' - blocks double clicks
+  const [confirmGenerate, setConfirmGenerate] = useState(false);
   const [docs, setDocs] = useState({}); // docKey -> { loading } | { error } | { type, url, fileName, searched }
   const previewRef = useRef(null);
 
@@ -224,18 +224,21 @@ export default function ClientDetail() {
       .catch((err) => setError(err.response?.data?.error || 'Failed to load client details'));
   }, [id]);
 
+  const loadDoc = (key) => {
+    setDocs((d) => ({ ...d, [key]: { loading: true } }));
+    api.get(`/clients/${id}/documents/${key}`)
+      .then(({ data }) => setDocs((d) => ({ ...d, [key]: data.data })))
+      .catch((err) => setDocs((d) => ({
+        ...d,
+        [key]: { error: err.response?.data?.error || 'Failed to load document' },
+      })));
+  };
+
   // Reset the viewer and load the picked document (once per document; cached after that).
   useEffect(() => {
     setZoom(100);
     setRotation(0);
-    if (docs[activeDoc]) return;
-    setDocs((d) => ({ ...d, [activeDoc]: { loading: true } }));
-    api.get(`/clients/${id}/documents/${activeDoc}`)
-      .then(({ data }) => setDocs((d) => ({ ...d, [activeDoc]: data.data })))
-      .catch((err) => setDocs((d) => ({
-        ...d,
-        [activeDoc]: { error: err.response?.data?.error || 'Failed to load document' },
-      })));
+    if (!docs[activeDoc]) loadDoc(activeDoc);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDoc, id]);
 
@@ -284,13 +287,39 @@ export default function ClientDetail() {
     }
   };
 
-  // The photo must be saved first; PDF generation never runs if saving fails.
-  const handleSaveAndGenerate = async () => {
-    if (busy) return;
+  const handleSaveAndGenerate = () => {
+    if (!busy) setConfirmGenerate(true);
+  };
+
+  // Runs from the confirmation popup. A pending photo rotation is saved first; if that
+  // fails the PDF is not regenerated. If regeneration fails the saved photo is kept.
+  // Errors are thrown so the popup shows them and stays open.
+  const runSaveAndGenerate = async (reason) => {
     setBusy('generate');
-    const saved = await saveLivePhoto();
-    setBusy('');
-    if (saved) showNotice(PDF_NOT_CONNECTED, { error: true, ms: 9000 });
+    try {
+      if (activeDoc === 'livephoto' && normalizeRotation(rotation) !== 0) {
+        const saved = await saveLivePhoto();
+        if (!saved) throw new Error('The photo was not saved, so the PDF was not regenerated.');
+      }
+      let result;
+      try {
+        ({ data: { data: result } } = await api.post(`/clients/${id}/regenerate-esign`, { reason }));
+      } catch (err) {
+        throw new Error(err.response?.data?.error || 'PDF regeneration failed');
+      }
+      setConfirmGenerate(false);
+      if (result.client) setClient(result.client);
+      // Show the regenerated PDF from S3 next time it is opened (or now, if it is open).
+      setDocs((d) => ({ ...d, unsignedpdf: undefined, esignedpdf: undefined }));
+      if (activeDoc === 'unsignedpdf' || activeDoc === 'esignedpdf') loadDoc(activeDoc);
+      showNotice(
+        result.emailError
+          || `PDF regenerated. Stage set to "${result.currentStage}". eSign link${result.pdfAttached ? ' and unsigned PDF' : ''} emailed to ${result.emailedTo}.`,
+        { error: !!result.emailError, ms: 8000 }
+      );
+    } finally {
+      setBusy('');
+    }
   };
 
   const toggleFullscreen = () => {
@@ -477,6 +506,30 @@ export default function ClientDetail() {
             </section>
           </div>
         </>
+      )}
+
+      {confirmGenerate && (
+        <ReasonModal
+          danger
+          title="Save & regenerate KYC PDF"
+          details={client ? [
+            { label: 'Client Name', value: client.client_name },
+            { label: 'PAN Number', value: client.pan_number },
+            { label: 'Email', value: client.email },
+            { label: 'Current Stage', value: client.current_stage },
+          ] : undefined}
+          confirmLabel="Save & regenerate"
+          acknowledge="I understand the client's current eSign will be replaced and they must eSign the new PDF."
+          onConfirm={runSaveAndGenerate}
+          onClose={() => { if (!busy) setConfirmGenerate(false); }}
+        >
+          {activeDoc === 'livephoto' && normalizeRotation(rotation) !== 0 && (
+            <p style={{ marginTop: 0 }}>The rotated live photo is saved first.</p>
+          )}
+          A new KYC PDF is generated from the current data, the client moves back to the
+          <b> eSign (in progress)</b> stage, and they are emailed the unsigned PDF with a direct
+          eSign link. The previous eSign is no longer used.
+        </ReasonModal>
       )}
 
       {notice && (
