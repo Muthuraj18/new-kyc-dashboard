@@ -1137,3 +1137,135 @@ table.data-table--compact {
   overflow: auto;
   overflow-wrap: anywhere;
 }
+
+/* ---------- Upload ---------- */
+.upload-card {
+  max-width: 640px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.upload-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.upload-card-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--active-bg);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.upload-card-icon .nav-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.upload-card-head h3 {
+  margin: 0;
+  font-size: 15.5px;
+}
+
+.upload-card-head p {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.upload-card-body {
+  padding: 20px 22px 22px;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 26px 16px;
+  border: 1.5px dashed var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.dropzone:hover,
+.dropzone.dragging {
+  border-color: var(--accent);
+  background: var(--active-bg);
+}
+
+.dropzone .nav-icon {
+  width: 26px;
+  height: 26px;
+  color: var(--accent);
+}
+
+.dropzone-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dropzone-title span {
+  color: var(--accent);
+}
+
+.dropzone-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.file-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.file-chip-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-chip-size {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: 6px;
+}
+
+.upload-rules {
+  margin: 16px 0 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.upload-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.upload-actions .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
