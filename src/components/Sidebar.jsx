@@ -11,6 +11,7 @@ import {
   TrashIcon,
 } from './icons';
 import useFeatures from '../hooks/useFeatures';
+import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', Icon: DashboardIcon },
@@ -20,13 +21,15 @@ const NAV_ITEMS = [
   { to: '/integrations', label: 'Integrations', Icon: IntegrationsIcon },
   { to: '/user-management', label: 'User Management', Icon: UserManagementIcon },
   { to: '/upload', label: 'Upload', Icon: UploadIcon },
-  { to: '/audit-logs', label: 'Audit Logs', Icon: AuditLogsIcon, feature: 'auditLogs' },
-  { to: '/trash', label: 'Trash', Icon: TrashIcon, feature: 'trash' },
+  { to: '/audit-logs', label: 'Audit Logs', Icon: AuditLogsIcon, feature: 'auditLogs', roles: ['Super Admin'] },
+  { to: '/trash', label: 'Trash', Icon: TrashIcon, feature: 'trash', roles: ['Super Admin'] },
 ];
 
 export default function Sidebar() {
   const features = useFeatures();
-  const items = NAV_ITEMS.filter((item) => !item.feature || features[item.feature]);
+  const { user } = useAuth();
+  const items = NAV_ITEMS.filter((item) => (!item.feature || features[item.feature])
+    && (!item.roles || item.roles.includes(user?.role)));
 
   return (
     <aside className="sidebar">

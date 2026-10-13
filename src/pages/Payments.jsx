@@ -19,13 +19,14 @@ function pageNumbers(current, totalPages) {
   return pages;
 }
 
-const STATUS_CLASS = { Success: 'pill-completed', Pending: 'pill-warning', Failed: 'pill-no' };
+const STATUS_CLASS = { Success: 'pill-completed', Pending: 'pill-warning', Failed: 'pill-no', Skipped: 'pill-pending' };
 
 const CARDS = [
   { key: 'total', label: 'Total Transactions', status: '', tone: '' },
   { key: 'Success', label: 'Successful Transactions', status: 'Success', tone: 'stat-success' },
   { key: 'Pending', label: 'Pending Transactions', status: 'Pending', tone: 'stat-warning' },
   { key: 'Failed', label: 'Failed Transactions', status: 'Failed', tone: 'stat-danger' },
+  { key: 'Skipped', label: 'Skipped (by admin)', status: 'Skipped', tone: '' },
 ];
 
 const EMPTY_SUMMARY = {
@@ -33,6 +34,7 @@ const EMPTY_SUMMARY = {
   Success: { count: 0, amount: 0 },
   Pending: { count: 0, amount: 0 },
   Failed: { count: 0, amount: 0 },
+  Skipped: { count: 0, amount: 0 },
 };
 
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 });
@@ -161,6 +163,7 @@ export default function Payments() {
           <option value="Success">Success</option>
           <option value="Pending">Pending</option>
           <option value="Failed">Failed</option>
+          <option value="Skipped">Skipped</option>
         </select>
         <input type="date" value={filters.dateFrom} onChange={handleFilterChange('dateFrom')} title="From date" />
         <input type="date" value={filters.dateTo} onChange={handleFilterChange('dateTo')} title="To date" />
