@@ -6,6 +6,7 @@ import {
   KycStatusIcon,
   IntegrationsIcon,
   UserManagementIcon,
+  UploadIcon,
   AuditLogsIcon,
   TrashIcon,
 } from './icons';
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { to: '/kyc-status', label: 'KYC Status', Icon: KycStatusIcon },
   { to: '/integrations', label: 'Integrations', Icon: IntegrationsIcon },
   { to: '/user-management', label: 'User Management', Icon: UserManagementIcon },
+  { to: '/upload', label: 'Upload', Icon: UploadIcon },
   { to: '/audit-logs', label: 'Audit Logs', Icon: AuditLogsIcon, feature: 'auditLogs' },
   { to: '/trash', label: 'Trash', Icon: TrashIcon, feature: 'trash' },
 ];
