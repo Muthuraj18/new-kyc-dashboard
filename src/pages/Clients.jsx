@@ -97,7 +97,8 @@ export default function Clients() {
   const handleDelete = async (record, reason) => {
     // The identifiers shown in the popup; the backend refuses the delete if they no longer match.
     const confirm = { unique_id: record.unique_id, pan_number: record.pan_number, client_code: record.client_code };
-    await api.delete(`/clients/${record.id}`, { data: { reason, confirm } });
+    // POST, not DELETE: the API Gateway CORS config only allows GET/POST/PATCH/PUT.
+    await api.post(`/clients/${record.id}/delete`, { reason, confirm });
     setRows((prev) => prev.filter((r) => r.id !== record.id));
     setTotal((t) => t - 1);
     setReasonAction(null);
