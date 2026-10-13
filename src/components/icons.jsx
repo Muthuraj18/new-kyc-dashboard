@@ -162,3 +162,10 @@ export const UploadIcon = (props) => (
     <path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" />
   </svg>
 );
+
+export const BellIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="nav-icon" {...base} {...props}>
+    <path d="M6 9.5a6 6 0 0 1 12 0c0 4.5 1.8 6 1.8 6H4.2s1.8-1.5 1.8-6" />
+    <path d="M10.2 19a2 2 0 0 0 3.6 0" />
+  </svg>
+);
