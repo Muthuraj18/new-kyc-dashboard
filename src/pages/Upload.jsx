@@ -3,6 +3,7 @@ import readXlsxFile from 'read-excel-file';
 import api from '../api';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
+import { UploadIcon } from '../components/icons';
 
 const UPLOAD_ROLES = ['Super Admin', 'Admin'];
 const MAX_ISSUES_SHOWN = 500;
@@ -67,12 +68,30 @@ function SummaryCard({ label, value, tone }) {
   );
 }
 
+const formatSize = (bytes) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
+
 function BoidUpload() {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
+  const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+
+  const pickFile = (f) => {
+    if (!f) return;
+    if (!/\.(xlsx|csv)$/i.test(f.name)) {
+      setError('Choose an .xlsx or .csv file.');
+      return;
+    }
+    setFile(f);
+    setError('');
+  };
+
+  const clearFile = () => {
+    setFile(null);
+    if (inputRef.current) inputRef.current.value = '';
+  };
 
   const handleUpload = async () => {
     if (!file) return;
@@ -84,8 +103,7 @@ function BoidUpload() {
       if (!rows.length) throw new Error('No BOID rows found in the file.');
       const res = await api.post('/upload/boid', { fileName: file.name, rows });
       setResult(res.data);
-      setFile(null);
-      if (inputRef.current) inputRef.current.value = '';
+      clearFile();
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Upload failed');
     } finally {
@@ -94,27 +112,60 @@ function BoidUpload() {
   };
 
   return (
-    <div className="table-card" style={{ padding: 22, overflow: 'visible' }}>
-      <h3 style={{ margin: 0, fontSize: 16 }}>BOID Upload</h3>
-      <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: '6px 0 16px' }}>
-        Upload an Excel (.xlsx) or CSV file with one BOID per row, in a column headed <b>BOID</b> (or the
-        first column). Each BOID must be 16 digits; format the column as <b>Text</b> in Excel so the last
-        digit isn&apos;t lost. Valid new BOIDs are added as <b>AVAILABLE</b> stock.
-      </p>
+    <>
+      <div className="upload-card">
+        <div className="upload-card-head">
+          <span className="upload-card-icon"><UploadIcon /></span>
+          <div>
+            <h3>BOID Upload</h3>
+            <p>Add new BOIDs to stock from an Excel or CSV file</p>
+          </div>
+        </div>
 
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".xlsx,.csv"
-          onChange={(e) => { setFile(e.target.files[0] || null); setError(''); }}
-        />
-        <button className="btn btn-primary" disabled={!file || busy} onClick={handleUpload}>
-          {busy ? 'Uploading...' : 'Upload'}
-        </button>
+        <div className="upload-card-body">
+          <label
+            className={`dropzone${dragging ? ' dragging' : ''}`}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setDragging(false); pickFile(e.dataTransfer.files[0]); }}
+          >
+            <UploadIcon />
+            <span className="dropzone-title"><span>Click to choose</span> or drag a file here</span>
+            <span className="dropzone-hint">.xlsx or .csv, up to 20,000 rows</span>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".xlsx,.csv"
+              hidden
+              onChange={(e) => pickFile(e.target.files[0])}
+            />
+          </label>
+
+          {file && (
+            <div className="file-chip">
+              <span style={{ minWidth: 0 }}>
+                <span className="file-chip-name">{file.name}</span>
+                <span className="file-chip-size">{formatSize(file.size)}</span>
+              </span>
+              <button className="btn btn-outline btn-sm" onClick={clearFile} disabled={busy}>Remove</button>
+            </div>
+          )}
+
+          <ul className="upload-rules">
+            <li>One BOID per row, in a column headed <b>BOID</b> (or the first column).</li>
+            <li>Each BOID must be exactly 16 digits. Format the column as <b>Text</b> in Excel.</li>
+            <li>Valid new BOIDs are added as <b>AVAILABLE</b> stock; duplicates are skipped.</li>
+          </ul>
+
+          {error && <div className="form-error" style={{ marginTop: 14 }}>{error}</div>}
+
+          <div className="upload-actions">
+            <button className="btn btn-primary" disabled={!file || busy} onClick={handleUpload}>
+              {busy ? 'Uploading...' : 'Upload BOIDs'}
+            </button>
+          </div>
+        </div>
       </div>
-
-      {error && <div className="form-error" style={{ marginTop: 14 }}>{error}</div>}
 
       {result && (
         <div style={{ marginTop: 22 }}>
@@ -161,7 +212,7 @@ function BoidUpload() {
           )}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
