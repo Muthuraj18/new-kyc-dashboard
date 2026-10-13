@@ -14,6 +14,15 @@ import { formatDate, formatLabel, orNa } from '../utils/format';
 const PAGE_SIZE = 25;
 const CLIENT_ACTION_ROLES = ['Super Admin', 'Admin'];
 
+// Common reasons offered in the Skip Payment popup ("Other" is added automatically).
+const SKIP_PAYMENT_REASONS = [
+  'Payment collected offline (cash / bank transfer)',
+  'Fee waived - staff / employee account',
+  'Fee waived - management approval',
+  'Paid, but payment not reflected in system',
+  'Already paid on an earlier application',
+];
+
 export default function Clients() {
   const [filters, setFilters] = useState({
     search: '',
@@ -289,6 +298,8 @@ export default function Clients() {
         <ReasonModal
           title="Skip payment stage"
           details={clientDetails(reasonAction.record)}
+          reasonLabel="Why skip payment?"
+          reasonOptions={SKIP_PAYMENT_REASONS}
           confirmLabel="Skip payment"
           onConfirm={(reason) => handleSkipPayment(reasonAction.record, reason)}
           onClose={() => setReasonAction(null)}
