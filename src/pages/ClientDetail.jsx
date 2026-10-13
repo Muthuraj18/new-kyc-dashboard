@@ -191,6 +191,11 @@ const DOCUMENTS = [
 ];
 
 const NOT_CONNECTED = 'Not connected to the backend yet.';
+const PDF_NOT_CONNECTED = 'Photo saved. PDF regeneration is not connected yet: the KYC PDF is built by the '
+  + 'onboarding app, so the PDF still shows the previous photo.';
+
+// Clockwise preview rotation (any multiple of 90) -> 0/90/180/270.
+const normalizeRotation = (deg) => ((deg % 360) + 360) % 360;
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -202,7 +207,8 @@ export default function ClientDetail() {
   const [activeDoc, setActiveDoc] = useState(DOCUMENTS[0].key);
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState(null); // { text, error }
+  const [busy, setBusy] = useState(''); // '' | 'save' | 'generate' - blocks double clicks
   const [docs, setDocs] = useState({}); // docKey -> { loading } | { error } | { type, url, fileName, searched }
   const previewRef = useRef(null);
 
@@ -233,9 +239,58 @@ export default function ClientDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDoc, id]);
 
-  const showNotice = (msg) => {
-    setNotice(msg);
-    setTimeout(() => setNotice(''), 3000);
+  const noticeTimer = useRef(null);
+  const showNotice = (text, { error = false, ms = 3000 } = {}) => {
+    clearTimeout(noticeTimer.current);
+    setNotice({ text, error });
+    noticeTimer.current = setTimeout(() => setNotice(null), error ? Math.max(ms, 7000) : ms);
+  };
+
+  // Saves the preview rotation into the real live photo in S3. Returns true when saved.
+  const saveLivePhoto = async () => {
+    if (activeDoc !== 'livephoto') {
+      showNotice('Save applies to the Client-live-image. Open it and rotate it first.');
+      return false;
+    }
+    if (!file?.key) {
+      showNotice('There is no live photo to save for this client.', { error: true });
+      return false;
+    }
+    const degrees = normalizeRotation(rotation);
+    if (!degrees) {
+      showNotice('Rotate the photo first, then Save.');
+      return false;
+    }
+    try {
+      const { data } = await api.post(`/clients/${id}/documents/livephoto/rotate`, { degrees, expectedKey: file.key });
+      // Fresh signed URL (no-store), so the browser shows the saved file, not a cached one.
+      // Cached PDFs are dropped so they're reloaded from S3 next time they're opened.
+      setDocs((d) => ({ ...d, livephoto: data.data, unsignedpdf: undefined, esignedpdf: undefined }));
+      setRotation(0);
+      return data.data;
+    } catch (err) {
+      showNotice(err.response?.data?.error || 'Failed to save the rotated photo', { error: true });
+      return false;
+    }
+  };
+
+  const handleSave = async () => {
+    if (busy) return;
+    setBusy('save');
+    const saved = await saveLivePhoto();
+    setBusy('');
+    if (saved) {
+      showNotice(saved.auditError || 'Live photo saved with the new orientation.', { error: !!saved.auditError });
+    }
+  };
+
+  // The photo must be saved first; PDF generation never runs if saving fails.
+  const handleSaveAndGenerate = async () => {
+    if (busy) return;
+    setBusy('generate');
+    const saved = await saveLivePhoto();
+    setBusy('');
+    if (saved) showNotice(PDF_NOT_CONNECTED, { error: true, ms: 9000 });
   };
 
   const toggleFullscreen = () => {
@@ -388,8 +443,8 @@ export default function ClientDetail() {
                 <div className="preview-toolbar">
                   <button title="Zoom out" onClick={() => setZoom((z) => Math.max(25, z - 25))}><ZoomOutIcon /></button>
                   <button title="Zoom in" onClick={() => setZoom((z) => Math.min(400, z + 25))}><ZoomInIcon /></button>
-                  <button title="Rotate left" onClick={() => setRotation((r) => r - 90)}><RotateLeftIcon /></button>
-                  <button title="Rotate right" onClick={() => setRotation((r) => r + 90)}><RotateRightIcon /></button>
+                  <button title="Rotate left" disabled={!!busy} onClick={() => setRotation((r) => r - 90)}><RotateLeftIcon /></button>
+                  <button title="Rotate right" disabled={!!busy} onClick={() => setRotation((r) => r + 90)}><RotateRightIcon /></button>
                   <button title="Full screen" onClick={toggleFullscreen}><ExpandIcon /></button>
                   <span className="zoom-label">{zoom}%</span>
                 </div>
@@ -398,11 +453,24 @@ export default function ClientDetail() {
               <div className="preview-actions">
                 <button className="btn btn-outline btn-pill" onClick={() => showNotice(NOT_CONNECTED)}>Upload File</button>
                 <div className="preview-actions-right">
-                  <button className="btn btn-outline" title="Save changes" onClick={() => showNotice(NOT_CONNECTED)}>
-                    Save <InfoIcon />
+                  {activeDoc === 'livephoto' && normalizeRotation(rotation) !== 0 && !busy && (
+                    <span className="unsaved-hint">Rotated {normalizeRotation(rotation)}° - not saved yet</span>
+                  )}
+                  <button
+                    className="btn btn-outline"
+                    title="Save the rotated live photo"
+                    disabled={!!busy}
+                    onClick={handleSave}
+                  >
+                    {busy === 'save' ? 'Saving…' : <>Save <InfoIcon /></>}
                   </button>
-                  <button className="btn btn-blue" title="Save and generate the KYC PDF" onClick={() => showNotice(NOT_CONNECTED)}>
-                    Save &amp; Generate PDF <InfoIcon />
+                  <button
+                    className="btn btn-blue"
+                    title="Save the live photo, then generate the KYC PDF"
+                    disabled={!!busy}
+                    onClick={handleSaveAndGenerate}
+                  >
+                    {busy === 'generate' ? 'Saving…' : <>Save &amp; Generate PDF <InfoIcon /></>}
                   </button>
                 </div>
               </div>
@@ -411,7 +479,9 @@ export default function ClientDetail() {
         </>
       )}
 
-      {notice && <div className="detail-toast">{notice}</div>}
+      {notice && (
+        <div className={`detail-toast${notice.error ? ' detail-toast--error' : ''}`} role="status">{notice.text}</div>
+      )}
     </Layout>
   );
 }
