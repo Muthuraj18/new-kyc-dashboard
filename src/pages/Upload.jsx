@@ -4,12 +4,23 @@ import api from '../api';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { UploadIcon } from '../components/icons';
+import { DropZone, IssuesTable, UploadSummary, formatSize } from '../components/UploadParts';
+import StampPaperUpload from './StampPaperUpload';
 
 const UPLOAD_ROLES = ['Super Admin', 'Admin'];
-const MAX_ISSUES_SHOWN = 500;
+
+const TABS = [
+  { key: 'boid', label: 'BOID' },
+  { key: 'stampPaper', label: 'Stamp Paper' },
+];
 
 // Excel shows big numbers like 1.20816E+15 when a BOID column isn't formatted as Text.
 const SCIENTIFIC = /^\d(\.\d+)?e\+\d+$/i;
+
+const BOID_ISSUE_COLUMNS = [
+  { label: 'Row', key: 'row' },
+  { label: 'BOID', key: 'boid', mono: true, excelText: true },
+];
 
 function parseCsv(text) {
   return text
@@ -47,39 +58,14 @@ function extractBoidRows(sheet) {
   return rows;
 }
 
-function downloadIssues(issues) {
-  const lines = ['Row,BOID,Result,Reason', ...issues.map((i) => [i.row, `="${i.boid}"`, i.result, `"${i.reason}"`].join(','))];
-  const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'boid-upload-issues.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-const RESULT_PILL = { duplicate: 'pill-warning', invalid: 'pill-no', failed: 'pill-no' };
-
-function SummaryCard({ label, value, tone }) {
-  return (
-    <div className={`stat-card${tone ? ` stat-${tone}` : ''}`} style={{ cursor: 'default' }}>
-      <span className="stat-label">{label}</span>
-      <span className="stat-value">{value}</span>
-    </div>
-  );
-}
-
-const formatSize = (bytes) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
-
 function BoidUpload() {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
-  const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
 
-  const pickFile = (f) => {
-    if (!f) return;
+  const pickFile = ([f]) => {
     if (!/\.(xlsx|csv)$/i.test(f.name)) {
       setError('Choose an .xlsx or .csv file.');
       return;
@@ -123,23 +109,15 @@ function BoidUpload() {
         </div>
 
         <div className="upload-card-body">
-          <label
-            className={`dropzone${dragging ? ' dragging' : ''}`}
-            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(e) => { e.preventDefault(); setDragging(false); pickFile(e.dataTransfer.files[0]); }}
-          >
-            <UploadIcon />
-            <span className="dropzone-title"><span>Click to choose</span> or drag a file here</span>
-            <span className="dropzone-hint">.xlsx or .csv, up to 20,000 rows</span>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".xlsx,.csv"
-              hidden
-              onChange={(e) => pickFile(e.target.files[0])}
-            />
-          </label>
+          <DropZone
+            icon={<UploadIcon />}
+            title="a file"
+            hint=".xlsx or .csv, up to 20,000 rows"
+            accept=".xlsx,.csv"
+            inputRef={inputRef}
+            disabled={busy}
+            onFiles={pickFile}
+          />
 
           {file && (
             <div className="file-chip">
@@ -168,49 +146,19 @@ function BoidUpload() {
       </div>
 
       {result && (
-        <div style={{ marginTop: 22 }}>
-          <div style={{ fontSize: 13.5, color: 'var(--muted)', marginBottom: 10 }}>
-            Upload summary{result.fileName ? ` for ${result.fileName}` : ''}
-          </div>
-          <div className="stat-grid">
-            <SummaryCard label="Total Rows" value={result.totalRows} />
-            <SummaryCard label="Inserted" value={result.inserted} tone="success" />
-            <SummaryCard label="Duplicate" value={result.duplicate} tone="warning" />
-            <SummaryCard label="Invalid" value={result.invalid} tone="danger" />
-            <SummaryCard label="Failed" value={result.failed} tone="danger" />
-          </div>
-
-          {result.issues.length > 0 && (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '6px 0 10px' }}>
-                <span style={{ fontSize: 13.5, fontWeight: 600 }}>
-                  Rows not inserted ({result.issues.length})
-                  {result.issues.length > MAX_ISSUES_SHOWN && ` - showing first ${MAX_ISSUES_SHOWN}`}
-                </span>
-                <button className="btn btn-outline btn-sm" onClick={() => downloadIssues(result.issues)}>
-                  Download CSV
-                </button>
-              </div>
-              <div className="table-card" style={{ maxHeight: 420 }}>
-                <table className="data-table data-table--compact">
-                  <thead>
-                    <tr><th>Row</th><th>BOID</th><th>Result</th><th>Reason</th></tr>
-                  </thead>
-                  <tbody>
-                    {result.issues.slice(0, MAX_ISSUES_SHOWN).map((i) => (
-                      <tr key={`${i.row}-${i.result}`}>
-                        <td>{i.row}</td>
-                        <td className="mono">{i.boid || <span className="na">(empty)</span>}</td>
-                        <td><span className={`pill ${RESULT_PILL[i.result]}`}>{i.result}</span></td>
-                        <td>{i.reason}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
+        <>
+          <UploadSummary
+            title={`Upload summary${result.fileName ? ` for ${result.fileName}` : ''}`}
+            cards={[
+              { label: 'Total Rows', value: result.totalRows },
+              { label: 'Inserted', value: result.inserted, tone: 'success' },
+              { label: 'Duplicate', value: result.duplicate, tone: 'warning' },
+              { label: 'Invalid', value: result.invalid, tone: 'danger' },
+              { label: 'Failed', value: result.failed, tone: 'danger' },
+            ]}
+          />
+          <IssuesTable issues={result.issues} columns={BOID_ISSUE_COLUMNS} csvName="boid-upload-issues.csv" />
+        </>
       )}
     </>
   );
@@ -218,14 +166,35 @@ function BoidUpload() {
 
 export default function Upload() {
   const { user } = useAuth();
+  const [tab, setTab] = useState('boid');
+
+  if (!UPLOAD_ROLES.includes(user?.role)) {
+    return (
+      <Layout title="Upload">
+        <div className="table-card state-msg">Only an admin can upload stock.</div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Upload">
-      {UPLOAD_ROLES.includes(user?.role) ? (
-        <BoidUpload />
-      ) : (
-        <div className="table-card state-msg">Only an admin can upload stock.</div>
-      )}
+      <div className="upload-tabs" role="tablist">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            role="tab"
+            aria-selected={tab === t.key}
+            className={`upload-tab${tab === t.key ? ' active' : ''}`}
+            onClick={() => setTab(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Both stay mounted so switching tabs never interrupts a running upload. */}
+      <div hidden={tab !== 'boid'}><BoidUpload /></div>
+      <div hidden={tab !== 'stampPaper'}><StampPaperUpload /></div>
     </Layout>
   );
 }
