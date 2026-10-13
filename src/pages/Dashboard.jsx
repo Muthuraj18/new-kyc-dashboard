@@ -18,16 +18,52 @@ function StatCard({ label, value, color }) {
 function InventorySection({ title, data }) {
   return (
     <div style={{ marginTop: 28 }}>
-      <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>{title}</h3>
+      <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>
+        {title}
+        {data?.low && <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--danger)' }}>Low stock</span>}
+      </h3>
       {data?.error ? (
         <div className="table-card" style={{ padding: 22, color: 'var(--danger)' }}>{data.error}</div>
       ) : (
         <div style={gridStyle}>
           <StatCard label="Total Accounts" value={data?.total} />
           <StatCard label="Used" value={data?.used} color="var(--danger)" />
-          <StatCard label="Available" value={data?.available} color="var(--success)" />
+          <StatCard
+            label="Available"
+            value={data?.available}
+            color={data?.low ? 'var(--danger)' : 'var(--success)'}
+          />
         </div>
       )}
+    </div>
+  );
+}
+
+// Shown when available BOID or Stamp Paper stock is below the alert threshold.
+function LowStockAlert({ inventory }) {
+  const low = [
+    { label: 'Stamp Paper', data: inventory.stampPaper },
+    { label: 'BOID', data: inventory.boid },
+  ].filter((i) => i.data?.low);
+  if (!low.length) return null;
+
+  return (
+    <div
+      role="alert"
+      style={{
+        marginBottom: 20,
+        padding: '14px 18px',
+        borderRadius: 10,
+        border: '1px solid var(--danger)',
+        borderLeftWidth: 5,
+        background: 'var(--card-bg)',
+      }}
+    >
+      <div style={{ fontWeight: 700, color: 'var(--danger)' }}>Low inventory alert</div>
+      <div style={{ marginTop: 4, fontSize: 14 }}>
+        {low.map((i) => `${i.label}: only ${i.data.available} available`).join(' · ')}
+        {` (alert below ${inventory.threshold}). Please replenish the stock.`}
+      </div>
     </div>
   );
 }
@@ -67,6 +103,8 @@ export default function Dashboard() {
 
   return (
     <Layout title="Dashboard">
+      <LowStockAlert inventory={inventory} />
+
       <div style={gridStyle}>
         {cards.map((c) => (
           <StatCard key={c.label} label={c.label} value={c.value} />
