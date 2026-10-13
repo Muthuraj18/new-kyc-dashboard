@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { GearIcon } from './icons';
 
-// onSkipPayment / onDelete are optional: pass them only when the action applies.
-export default function ActionsMenu({ onView, onEdit, onSkipPayment, onDelete }) {
+// onSkipPayment / onDelete are optional: pass them only when the user may do them.
+// skipPaymentDisabled: a short reason shown under a greyed-out "Skip Payment Stage".
+export default function ActionsMenu({ onView, onEdit, onSkipPayment, skipPaymentDisabled, onDelete }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -25,7 +26,17 @@ export default function ActionsMenu({ onView, onEdit, onSkipPayment, onDelete })
         <div className="actions-menu">
           <button onClick={run(onView)}>View Details</button>
           <button onClick={run(onEdit)}>Edit</button>
-          {onSkipPayment && <button onClick={run(onSkipPayment)}>Skip Payment Stage</button>}
+          {onSkipPayment && (
+            <button
+              onClick={skipPaymentDisabled ? undefined : run(onSkipPayment)}
+              disabled={!!skipPaymentDisabled}
+              title={skipPaymentDisabled || undefined}
+              className={skipPaymentDisabled ? 'menu-item-disabled' : undefined}
+            >
+              Skip Payment Stage
+              {skipPaymentDisabled && <span className="menu-item-hint">{skipPaymentDisabled}</span>}
+            </button>
+          )}
           {onDelete && (
             <button onClick={run(onDelete)} style={{ color: 'var(--danger)' }}>
               Delete
