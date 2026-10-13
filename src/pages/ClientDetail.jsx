@@ -249,27 +249,32 @@ export default function ClientDetail() {
     noticeTimer.current = setTimeout(() => setNotice(null), error ? Math.max(ms, 7000) : ms);
   };
 
-  // Saves the preview rotation into the real live photo in S3. Returns true when saved.
-  const saveLivePhoto = async () => {
-    if (activeDoc !== 'livephoto') {
+  // Saves the preview rotation into the real live photo in S3 and brings the PDF's copy
+  // of the photo to the same orientation (also when nothing is rotated: "sync").
+  // Returns the result, or false on error (already shown as a toast).
+  const saveLivePhoto = async ({ syncOnly = false } = {}) => {
+    const onPhoto = activeDoc === 'livephoto';
+    const degrees = onPhoto ? normalizeRotation(rotation) : 0;
+    if (!syncOnly && !onPhoto) {
       showNotice('Save applies to the Client-live-image. Open it and rotate it first.');
       return false;
     }
-    if (!file?.key) {
+    if (onPhoto && !file?.key) {
       showNotice('There is no live photo to save for this client.', { error: true });
       return false;
     }
-    const degrees = normalizeRotation(rotation);
-    if (!degrees) {
-      showNotice('Rotate the photo first, then Save.');
-      return false;
-    }
     try {
-      const { data } = await api.post(`/clients/${id}/documents/livephoto/rotate`, { degrees, expectedKey: file.key });
-      // Fresh signed URL (no-store), so the browser shows the saved file, not a cached one.
-      // Cached PDFs are dropped so they're reloaded from S3 next time they're opened.
-      setDocs((d) => ({ ...d, livephoto: data.data, unsignedpdf: undefined, esignedpdf: undefined }));
-      setRotation(0);
+      const { data } = await api.post(`/clients/${id}/documents/livephoto/rotate`, {
+        degrees,
+        expectedKey: docs.livephoto?.key,
+        syncOnly,
+      });
+      if (!data.data.unchanged) {
+        // Fresh signed URL (no-store), so the browser shows the saved file, not a cached one.
+        // Cached PDFs are dropped so they're reloaded from S3 next time they're opened.
+        setDocs((d) => ({ ...d, livephoto: data.data, unsignedpdf: undefined, esignedpdf: undefined }));
+        setRotation(0);
+      }
       return data.data;
     } catch (err) {
       showNotice(err.response?.data?.error || 'Failed to save the rotated photo', { error: true });
@@ -283,7 +288,8 @@ export default function ClientDetail() {
     const saved = await saveLivePhoto();
     setBusy('');
     if (saved) {
-      showNotice(saved.auditError || 'Live photo saved with the new orientation.', { error: !!saved.auditError });
+      const warning = saved.pdfWarning || saved.auditError;
+      showNotice(warning || 'Live photo saved with the new orientation (dashboard and PDF copy).', { error: !!warning, ms: warning ? 10000 : 3000 });
     }
   };
 
@@ -297,10 +303,11 @@ export default function ClientDetail() {
   const runSaveAndGenerate = async (reason) => {
     setBusy('generate');
     try {
-      if (activeDoc === 'livephoto' && normalizeRotation(rotation) !== 0) {
-        const saved = await saveLivePhoto();
-        if (!saved) throw new Error('The photo was not saved, so the PDF was not regenerated.');
-      }
+      // Always sync the PDF's photo copy first; never send the client a PDF whose photo
+      // could not be corrected.
+      const saved = await saveLivePhoto({ syncOnly: true });
+      if (!saved) throw new Error('The photo was not saved, so the PDF was not regenerated.');
+      if (saved.pdfWarning) throw new Error(`${saved.pdfWarning} The PDF was not regenerated.`);
       let result;
       try {
         ({ data: { data: result } } = await api.post(`/clients/${id}/regenerate-esign`, { reason }));
