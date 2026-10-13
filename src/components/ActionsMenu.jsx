@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { GearIcon } from './icons';
 
-export default function ActionsMenu({ onView, onEdit, onDelete }) {
+// onSkipPayment / onDelete are optional: pass them only when the action applies.
+export default function ActionsMenu({ onView, onEdit, onSkipPayment, onDelete }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -13,6 +14,8 @@ export default function ActionsMenu({ onView, onEdit, onDelete }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const run = (fn) => () => { setOpen(false); fn(); };
+
   return (
     <div className="actions-wrap" ref={ref}>
       <button className="btn btn-outline btn-sm" onClick={() => setOpen((o) => !o)}>
@@ -20,11 +23,12 @@ export default function ActionsMenu({ onView, onEdit, onDelete }) {
       </button>
       {open && (
         <div className="actions-menu">
-          <button onClick={() => { setOpen(false); onView(); }}>View Details</button>
-          <button onClick={() => { setOpen(false); onEdit(); }}>Edit</button>
+          <button onClick={run(onView)}>View Details</button>
+          <button onClick={run(onEdit)}>Edit</button>
+          {onSkipPayment && <button onClick={run(onSkipPayment)}>Skip Payment Stage</button>}
           {onDelete && (
-            <button onClick={() => { setOpen(false); onDelete(); }} style={{ color: 'var(--danger)' }}>
-              Move to Trash
+            <button onClick={run(onDelete)} style={{ color: 'var(--danger)' }}>
+              Delete
             </button>
           )}
         </div>

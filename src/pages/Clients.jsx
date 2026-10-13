@@ -6,10 +6,13 @@ import CopyableCell from '../components/CopyableCell';
 import StatusPill from '../components/StatusPill';
 import ActionsMenu from '../components/ActionsMenu';
 import ClientEditModal from '../components/ClientEditModal';
+import ReasonModal from '../components/ReasonModal';
+import { useAuth } from '../context/AuthContext';
 import useFeatures from '../hooks/useFeatures';
 import { formatDate, formatLabel, orNa } from '../utils/format';
 
 const PAGE_SIZE = 25;
+const CLIENT_ACTION_ROLES = ['Super Admin', 'Admin'];
 
 export default function Clients() {
   const [filters, setFilters] = useState({
@@ -27,6 +30,8 @@ export default function Clients() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [modalState, setModalState] = useState(null); // { record, readOnly }
+  const [reasonAction, setReasonAction] = useState(null); // { type: 'delete' | 'skip', record }
+  const { user } = useAuth();
   const features = useFeatures();
   const navigate = useNavigate();
 
@@ -85,12 +90,24 @@ export default function Clients() {
     setModalState(null);
   };
 
-  const handleDelete = async (record) => {
-    if (!window.confirm(`Move ${record.client_name || record.application_id || record.client_code} to Trash?`)) return;
-    await api.delete(`/clients/${record.id}`);
+  // Delete / Skip Payment: the backend enforces role, reason and transaction safety;
+  // these only open the reason dialog.
+  const canAct = CLIENT_ACTION_ROLES.includes(user?.role) && features.trash && features.auditLogs;
+
+  const handleDelete = async (record, reason) => {
+    await api.delete(`/clients/${record.id}`, { data: { reason } });
     setRows((prev) => prev.filter((r) => r.id !== record.id));
     setTotal((t) => t - 1);
+    setReasonAction(null);
   };
+
+  const handleSkipPayment = async (record, reason) => {
+    const { data } = await api.post(`/clients/${record.id}/skip-payment`, { reason });
+    setRows((prev) => prev.map((r) => (r.id === record.id ? data.data : r)));
+    setReasonAction(null);
+  };
+
+  const clientLabel = (r) => `${orNa(r.client_name)} · ${orNa(r.client_code)} · App #${orNa(r.application_id)}`;
 
   const handleViewPdf = async (record) => {
     try {
@@ -205,7 +222,9 @@ export default function Clients() {
                     <ActionsMenu
                       onView={() => setModalState({ record: r, readOnly: true })}
                       onEdit={() => setModalState({ record: r, readOnly: false })}
-                      onDelete={features.trash ? () => handleDelete(r) : undefined}
+                      onSkipPayment={canAct && r.current_stage === 'payment'
+                        ? () => setReasonAction({ type: 'skip', record: r }) : undefined}
+                      onDelete={canAct ? () => setReasonAction({ type: 'delete', record: r }) : undefined}
                     />
                   </td>
                 </tr>
@@ -237,6 +256,35 @@ export default function Clients() {
           onClose={() => setModalState(null)}
           onSave={handleSave}
         />
+      )}
+
+      {reasonAction?.type === 'delete' && (
+        <ReasonModal
+          danger
+          title="Delete client"
+          subtitle={clientLabel(reasonAction.record)}
+          confirmLabel="Delete permanently"
+          acknowledge="I understand this removes the client and all related records from the active database."
+          onConfirm={(reason) => handleDelete(reasonAction.record, reason)}
+          onClose={() => setReasonAction(null)}
+        >
+          A full snapshot of the client and its related records (CVL KRA, CDSL, NSE, BSE, MF,
+          TechExcel) is stored permanently in Trash, with your name and the reason, before the
+          client is removed. It cannot be undone from the dashboard.
+        </ReasonModal>
+      )}
+
+      {reasonAction?.type === 'skip' && (
+        <ReasonModal
+          title="Skip payment stage"
+          subtitle={clientLabel(reasonAction.record)}
+          confirmLabel="Skip payment"
+          onConfirm={(reason) => handleSkipPayment(reasonAction.record, reason)}
+          onClose={() => setReasonAction(null)}
+        >
+          Payment will be marked <b>SKIPPED</b> (not paid) and the client moves to the next
+          stage. The action and reason are recorded in the audit log.
+        </ReasonModal>
       )}
     </Layout>
   );
