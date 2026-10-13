@@ -95,7 +95,9 @@ export default function Clients() {
   const canAct = CLIENT_ACTION_ROLES.includes(user?.role) && features.trash && features.auditLogs;
 
   const handleDelete = async (record, reason) => {
-    await api.delete(`/clients/${record.id}`, { data: { reason } });
+    // The identifiers shown in the popup; the backend refuses the delete if they no longer match.
+    const confirm = { unique_id: record.unique_id, pan_number: record.pan_number, client_code: record.client_code };
+    await api.delete(`/clients/${record.id}`, { data: { reason, confirm } });
     setRows((prev) => prev.filter((r) => r.id !== record.id));
     setTotal((t) => t - 1);
     setReasonAction(null);
@@ -107,7 +109,13 @@ export default function Clients() {
     setReasonAction(null);
   };
 
-  const clientLabel = (r) => `${orNa(r.client_name)} · ${orNa(r.client_code)} · App #${orNa(r.application_id)}`;
+  // Shown in the Delete / Skip popups so the admin can verify the client.
+  const clientDetails = (r) => [
+    { label: 'Client Name', value: r.client_name },
+    { label: 'PAN Number', value: r.pan_number },
+    { label: 'Client Code', value: r.client_code },
+    { label: 'Unique ID', value: r.unique_id },
+  ];
 
   const handleViewPdf = async (record) => {
     try {
@@ -262,9 +270,9 @@ export default function Clients() {
         <ReasonModal
           danger
           title="Delete client"
-          subtitle={clientLabel(reasonAction.record)}
+          details={clientDetails(reasonAction.record)}
           confirmLabel="Delete permanently"
-          acknowledge="I understand this removes the client and all related records from the active database."
+          acknowledge="I have verified the PAN number, client code and unique ID above, and understand this removes the client and all related records from the active database."
           onConfirm={(reason) => handleDelete(reasonAction.record, reason)}
           onClose={() => setReasonAction(null)}
         >
@@ -277,7 +285,7 @@ export default function Clients() {
       {reasonAction?.type === 'skip' && (
         <ReasonModal
           title="Skip payment stage"
-          subtitle={clientLabel(reasonAction.record)}
+          details={clientDetails(reasonAction.record)}
           confirmLabel="Skip payment"
           onConfirm={(reason) => handleSkipPayment(reasonAction.record, reason)}
           onClose={() => setReasonAction(null)}
