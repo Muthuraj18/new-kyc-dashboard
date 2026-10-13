@@ -230,8 +230,10 @@ export default function Clients() {
                     <ActionsMenu
                       onView={() => setModalState({ record: r, readOnly: true })}
                       onEdit={() => setModalState({ record: r, readOnly: false })}
-                      onSkipPayment={canAct && r.current_stage === 'payment'
-                        ? () => setReasonAction({ type: 'skip', record: r }) : undefined}
+                      onSkipPayment={canAct ? () => setReasonAction({ type: 'skip', record: r }) : undefined}
+                      skipPaymentDisabled={r.current_stage === 'payment'
+                        ? null
+                        : `Only at Payment stage (now: ${formatLabel(r.current_stage) || 'N/A'})`}
                       onDelete={canAct ? () => setReasonAction({ type: 'delete', record: r }) : undefined}
                     />
                   </td>
