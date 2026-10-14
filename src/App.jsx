@@ -11,6 +11,7 @@ import UserManagement from './pages/UserManagement';
 import AuditLogs from './pages/AuditLogs';
 import Trash from './pages/Trash';
 import Upload from './pages/Upload';
+import IntegrationTable from './pages/IntegrationTable';
 
 export default function App() {
   return (
@@ -27,6 +28,8 @@ export default function App() {
       <Route path="/audit-logs" element={<ProtectedRoute><AuditLogs /></ProtectedRoute>} />
       <Route path="/trash" element={<ProtectedRoute><Trash /></ProtectedRoute>} />
       <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+      <Route path="/tables" element={<Navigate to="/tables/cvlkra" replace />} />
+      <Route path="/tables/:table" element={<ProtectedRoute><IntegrationTable /></ProtectedRoute>} />
 
       <Route path="/" element={<Navigate to="/clients" replace />} />
       <Route path="*" element={<Navigate to="/clients" replace />} />
