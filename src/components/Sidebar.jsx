@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   DashboardIcon,
@@ -47,21 +47,25 @@ const NAV_ITEMS = [
 function NavGroup({ item }) {
   const { pathname } = useLocation();
   const inside = pathname.startsWith(item.to);
+  // Open when entering one of its pages; otherwise the caret alone opens / closes it.
   const [open, setOpen] = useState(inside);
+  useEffect(() => {
+    if (inside) setOpen(true);
+  }, [inside]);
   const { Icon } = item;
   return (
     <li>
       <button
         type="button"
         className={`nav-item nav-group-toggle${inside ? ' active' : ''}`}
-        aria-expanded={open || inside}
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
         <Icon />
         <span>{item.label}</span>
-        <CaretDownIcon className={`ui-icon nav-caret${open || inside ? ' open' : ''}`} />
+        <CaretDownIcon className={`ui-icon nav-caret${open ? ' open' : ''}`} />
       </button>
-      {(open || inside) && (
+      {open && (
         <ul className="nav-sublist">
           {item.children.map((c) => (
             <li key={c.to}>
