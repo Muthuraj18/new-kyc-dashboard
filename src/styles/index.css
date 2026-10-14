@@ -1586,3 +1586,84 @@ table.data-table--compact {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* Client Details inline editing */
+.pending-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--warning);
+  border-radius: 10px;
+  background: rgba(217, 154, 6, 0.08);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pending-bar > div {
+  display: flex;
+  gap: 6px;
+}
+
+.module-field--edited {
+  background: rgba(217, 154, 6, 0.08);
+  border-radius: 8px;
+}
+
+.edited-tag {
+  margin-left: 6px;
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--warning);
+}
+
+.module-edit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.field-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.field-input {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.field-editor-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.pending-list {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 13px;
+}
+
+.pending-list ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.pending-list s {
+  color: var(--muted);
+}

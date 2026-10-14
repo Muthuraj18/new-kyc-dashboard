@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import api from '../api';
 import Layout from '../components/Layout';
 import ReasonModal from '../components/ReasonModal';
+import FieldEditor from '../components/FieldEditor';
+import { useAuth } from '../context/AuthContext';
 import {
   PinIcon,
   ZoomInIcon,
@@ -13,6 +15,7 @@ import {
   InfoIcon,
   CaretDownIcon,
   PencilIcon,
+  RotateLeftIcon as UndoIcon,
 } from '../components/icons';
 import { orNa } from '../utils/format';
 
@@ -196,6 +199,8 @@ const NOT_CONNECTED = 'Not connected to the backend yet.';
 // Clockwise preview rotation (any multiple of 90) -> 0/90/180/270.
 const normalizeRotation = (deg) => ((deg % 360) + 360) % 360;
 
+const EDIT_ROLES = ['Super Admin', 'Admin'];
+
 export default function ClientDetail() {
   const { id } = useParams();
   const [client, setClient] = useState(null);
@@ -211,6 +216,27 @@ export default function ClientDetail() {
   const [confirmGenerate, setConfirmGenerate] = useState(false);
   const [docs, setDocs] = useState({}); // docKey -> { loading } | { error } | { type, url, fileName, searched }
   const previewRef = useRef(null);
+  const { user } = useAuth();
+  const canEdit = EDIT_ROLES.includes(user?.role);
+  const [editDefs, setEditDefs] = useState({}); // field key -> definition (editable fields only)
+  const [pending, setPending] = useState({}); // field key -> new value, not saved yet
+  const [editingKey, setEditingKey] = useState(null);
+  const pendingCount = Object.keys(pending).length;
+
+  useEffect(() => {
+    if (!canEdit) return;
+    api.get('/clients/edit-fields')
+      .then(({ data }) => setEditDefs(Object.fromEntries(data.data.map((d) => [d.key, d]))))
+      .catch(() => {});
+  }, [canEdit]);
+
+  // Warn before leaving with unsaved field edits.
+  useEffect(() => {
+    if (!pendingCount) return undefined;
+    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [pendingCount]);
 
   useEffect(() => {
     api.get(`/clients/${id}`)
@@ -241,6 +267,57 @@ export default function ClientDetail() {
     if (!docs[activeDoc]) loadDoc(activeDoc);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDoc, id]);
+
+  const applyEdit = (key, value) => {
+    setEditingKey(null);
+    const saved = details?.[key];
+    const asText = (v) => (v === null || v === undefined ? '' : String(v));
+    setPending((p) => {
+      const next = { ...p };
+      if (asText(saved) === asText(value)) delete next[key];
+      else next[key] = value;
+      return next;
+    });
+  };
+  const undoEdit = (key) => setPending((p) => {
+    const next = { ...p };
+    delete next[key];
+    return next;
+  });
+
+  // Saves pending field edits (kyc_master_details + integration tables, audited).
+  // Throws on failure so callers (Save changes / Save & Generate PDF) can stop.
+  const saveFields = async (reason) => {
+    try {
+      const { data } = await api.post(`/clients/${id}/fields`, { changes: pending, reason });
+      const result = data.data;
+      if (result.details) setDetails(result.details);
+      setPending({});
+      return result;
+    } catch (err) {
+      throw new Error(err.response?.data?.error || 'Failed to save the changes');
+    }
+  };
+
+  const syncSummary = (result) => {
+    const tables = result.sync.filter((t) => t.columns.length).map((t) => t.label);
+    const n = result.updated.length;
+    return `${n} field${n === 1 ? '' : 's'} saved${tables.length ? `; also updated in ${tables.join(', ')}` : ''}.`;
+  };
+
+  const handleSaveFields = async () => {
+    if (busy || !pendingCount) return;
+    setBusy('fields');
+    try {
+      const result = await saveFields(null);
+      const warn = result.warnings.join(' ');
+      showNotice(`${syncSummary(result)}${warn ? ` ${warn}` : ''}`, { error: !!warn, ms: warn ? 10000 : 5000 });
+    } catch (err) {
+      showNotice(err.message, { error: true });
+    } finally {
+      setBusy('');
+    }
+  };
 
   const noticeTimer = useRef(null);
   const showNotice = (text, { error = false, ms = 3000 } = {}) => {
@@ -303,7 +380,9 @@ export default function ClientDetail() {
   const runSaveAndGenerate = async (reason) => {
     setBusy('generate');
     try {
-      // Always sync the PDF's photo copy first; never send the client a PDF whose photo
+      // 1. Pending field edits are saved first; the PDF is built from the saved DB values.
+      if (pendingCount) await saveFields(reason);
+      // 2. Always sync the PDF's photo copy first; never send the client a PDF whose photo
       // could not be corrected.
       const saved = await saveLivePhoto({ syncOnly: true });
       if (!saved) throw new Error('The photo was not saved, so the PDF was not regenerated.');
@@ -401,6 +480,19 @@ export default function ClientDetail() {
           <div className="detail-grid">
             <section className="detail-panel">
               <div className="detail-panel-title">Modules</div>
+              {pendingCount > 0 && (
+                <div className="pending-bar">
+                  <span>{pendingCount} unsaved change{pendingCount === 1 ? '' : 's'}</span>
+                  <div>
+                    <button className="btn btn-outline btn-sm" disabled={!!busy} onClick={() => { setPending({}); setEditingKey(null); }}>
+                      Discard
+                    </button>
+                    <button className="btn btn-primary btn-sm" disabled={!!busy} onClick={handleSaveFields}>
+                      {busy === 'fields' ? 'Saving…' : 'Save changes'}
+                    </button>
+                  </div>
+                </div>
+              )}
               <ul className="module-list">
                 {MODULES.map((m) => {
                   const isOpen = openModule === m.key;
@@ -429,21 +521,37 @@ export default function ClientDetail() {
                                   <strong>{stamp}</strong>
                                 </div>
                               )}
-                              {fields.map((f) => (
-                                <div key={f.key} className="module-field">
-                                  <div className="module-field-text">
-                                    <span>{f.label}</span>
-                                    <FieldValue field={f} value={details[f.key]} />
+                              {fields.map((f) => {
+                                const def = editDefs[f.key];
+                                const edited = Object.prototype.hasOwnProperty.call(pending, f.key);
+                                const shown = edited ? pending[f.key] : details[f.key];
+                                return (
+                                  <div key={f.key} className={`module-field${edited ? ' module-field--edited' : ''}`}>
+                                    <div className="module-field-text">
+                                      <span>{f.label}{edited && <em className="edited-tag">edited</em>}</span>
+                                      {editingKey === f.key ? (
+                                        <FieldEditor
+                                          def={def}
+                                          value={shown}
+                                          onApply={(v) => applyEdit(f.key, v)}
+                                          onCancel={() => setEditingKey(null)}
+                                        />
+                                      ) : (
+                                        <FieldValue field={f} value={shown} />
+                                      )}
+                                    </div>
+                                    {def && editingKey !== f.key && (edited ? (
+                                      <button className="module-edit" title="Undo this change" disabled={!!busy} onClick={() => undoEdit(f.key)}>
+                                        <UndoIcon />
+                                      </button>
+                                    ) : (
+                                      <button className="module-edit" title={`Edit ${f.label}`} disabled={!!busy} onClick={() => setEditingKey(f.key)}>
+                                        <PencilIcon />
+                                      </button>
+                                    ))}
                                   </div>
-                                  <button
-                                    className="module-edit"
-                                    title={`Edit ${f.label}`}
-                                    onClick={() => showNotice('Editing is not connected yet.')}
-                                  >
-                                    <PencilIcon />
-                                  </button>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </>
                           )}
                         </div>
@@ -530,10 +638,24 @@ export default function ClientDetail() {
           onConfirm={runSaveAndGenerate}
           onClose={() => { if (!busy) setConfirmGenerate(false); }}
         >
+          {pendingCount > 0 && (
+            <div className="pending-list">
+              <b>These {pendingCount} change{pendingCount === 1 ? ' is' : 's are'} saved first</b>
+              {' '}(also to CVL KRA / CDSL / NSE / BSE / TechExcel data):
+              <ul>
+                {Object.entries(pending).map(([key, value]) => (
+                  <li key={key}>
+                    {editDefs[key]?.module} &rsaquo; {editDefs[key]?.label}:{' '}
+                    <s>{String(details?.[key] ?? '—')}</s> &rarr; <b>{value === null || value === '' ? '(empty)' : String(value === true ? 'Yes' : value === false ? 'No' : value)}</b>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {activeDoc === 'livephoto' && normalizeRotation(rotation) !== 0 && (
             <p style={{ marginTop: 0 }}>The rotated live photo is saved first.</p>
           )}
-          A new KYC PDF is generated from the current data, the client moves back to the
+          A new KYC PDF is generated from the saved data, the client moves back to the
           <b> eSign (in progress)</b> stage, and they are emailed the unsigned PDF with a direct
           eSign link. The previous eSign is no longer used.
         </ReasonModal>
