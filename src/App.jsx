@@ -12,6 +12,7 @@ import AuditLogs from './pages/AuditLogs';
 import Trash from './pages/Trash';
 import Upload from './pages/Upload';
 import IntegrationTable from './pages/IntegrationTable';
+import KycLogs from './pages/KycLogs';
 
 export default function App() {
   return (
@@ -28,6 +29,8 @@ export default function App() {
       <Route path="/audit-logs" element={<ProtectedRoute><AuditLogs /></ProtectedRoute>} />
       <Route path="/trash" element={<ProtectedRoute><Trash /></ProtectedRoute>} />
       <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+      <Route path="/kyc-logs" element={<ProtectedRoute><KycLogs /></ProtectedRoute>} />
+      <Route path="/kyc-logs/:id" element={<ProtectedRoute><KycLogs /></ProtectedRoute>} />
       <Route path="/tables" element={<Navigate to="/tables/cvlkra" replace />} />
       <Route path="/tables/:table" element={<ProtectedRoute><IntegrationTable /></ProtectedRoute>} />
 

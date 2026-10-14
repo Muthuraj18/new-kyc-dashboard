@@ -176,3 +176,10 @@ export const TableIcon = (props) => (
     <path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10" />
   </svg>
 );
+
+export const LogsIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="nav-icon" {...base} {...props}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
+  </svg>
+);

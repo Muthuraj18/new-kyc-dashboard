@@ -1857,3 +1857,100 @@ table.data-table--compact {
   max-height: 280px;
   object-fit: contain;
 }
+
+/* KYC Logs */
+.logs-header {
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  overflow: visible;
+}
+
+.logs-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.logs-cw {
+  flex: 1;
+  min-width: 220px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.logs-cw--warn {
+  color: var(--warning);
+}
+
+.logs-module {
+  margin-bottom: 12px;
+  overflow: visible;
+}
+
+.logs-module-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+}
+
+.logs-module-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.nav-caret-inline {
+  display: inline-block;
+  transition: transform 0.15s;
+  color: var(--muted);
+}
+
+.nav-caret-inline.open {
+  transform: rotate(90deg);
+}
+
+.logs-count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--active-bg);
+  color: var(--active-text);
+  font-size: 12px;
+  text-align: center;
+}
+
+.logs-table td {
+  white-space: normal;
+  vertical-align: top;
+}
+
+.logs-text {
+  max-width: 380px;
+  overflow-wrap: anywhere;
+  font-size: 12.5px;
+}
+
+.logs-text pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 11.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.detail-logs-link {
+  margin-left: 16px;
+}

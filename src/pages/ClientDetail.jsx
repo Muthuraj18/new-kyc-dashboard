@@ -542,6 +542,7 @@ export default function ClientDetail() {
     <Layout title="Client Details">
       <div className="detail-back">
         <Link to="/clients">&larr; Back to Clients</Link>
+        {canEdit && <Link to={`/kyc-logs/${id}`} className="detail-logs-link">View KYC Logs &rarr;</Link>}
       </div>
 
       {error ? (
