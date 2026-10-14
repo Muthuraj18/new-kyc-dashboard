@@ -4,6 +4,7 @@ import api from '../api';
 import Layout from '../components/Layout';
 import ReasonModal from '../components/ReasonModal';
 import FieldEditor from '../components/FieldEditor';
+import DocumentUploadModal, { prepareImage } from '../components/DocumentUploadModal';
 import { useAuth } from '../context/AuthContext';
 import {
   PinIcon,
@@ -201,6 +202,8 @@ const NOT_CONNECTED = 'Not connected to the backend yet.';
 const normalizeRotation = (deg) => ((deg % 360) + 360) % 360;
 
 const EDIT_ROLES = ['Super Admin', 'Admin'];
+// Documents an admin can replace with Upload File.
+const UPLOADABLE = { livephoto: 'IPV live photo', signature: 'Signature' };
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -216,6 +219,8 @@ export default function ClientDetail() {
   const [busy, setBusy] = useState(''); // '' | 'save' | 'generate' - blocks double clicks
   const [confirmGenerate, setConfirmGenerate] = useState(false);
   const [xmlBusy, setXmlBusy] = useState(false);
+  const uploadInputRef = useRef(null);
+  const [upload, setUpload] = useState(null); // { doc, file, prepared } awaiting confirmation
   const [docs, setDocs] = useState({}); // docKey -> { loading } | { error } | { type, url, fileName, searched }
   const previewRef = useRef(null);
   const { user } = useAuth();
@@ -420,6 +425,43 @@ export default function ClientDetail() {
   const doc = DOCUMENTS.find((d) => d.key === activeDoc);
   const file = docs[activeDoc];
   const viewStyle = { transform: `scale(${zoom / 100}) rotate(${rotation}deg)` };
+
+  const startUpload = () => {
+    if (!UPLOADABLE[activeDoc]) {
+      showNotice('Upload File replaces the Client-live-image or the Signature. Open one of them first.');
+      return;
+    }
+    uploadInputRef.current?.click();
+  };
+
+  const onFilePicked = async (e) => {
+    const picked = e.target.files?.[0];
+    e.target.value = '';
+    if (!picked) return;
+    try {
+      const prepared = await prepareImage(picked);
+      setUpload({ doc: activeDoc, file: picked, prepared });
+    } catch (err) {
+      showNotice(err.message, { error: true });
+    }
+  };
+
+  // Replaces the file in S3 (backend validates again), then shows it right away.
+  const confirmUpload = async () => {
+    const { doc, file: picked, prepared } = upload;
+    setBusy('upload');
+    try {
+      const { data } = await api.post(`/clients/${id}/documents/${doc}/upload`, { image: prepared.dataUrl, fileName: picked.name });
+      setDocs((d) => ({ ...d, [doc]: data.data, unsignedpdf: undefined, esignedpdf: undefined }));
+      if (doc === activeDoc) setRotation(0);
+      setUpload(null);
+      showNotice(`${UPLOADABLE[doc]} replaced. Save & Generate PDF will use the new image.`);
+    } catch (err) {
+      throw new Error(err.response?.data?.error || 'Upload failed');
+    } finally {
+      setBusy('');
+    }
+  };
 
   // Fresh 5-minute link per click (the bucket is private); the backend logs the download.
   const downloadAadhaarXml = async () => {
@@ -640,7 +682,19 @@ export default function ClientDetail() {
               </div>
 
               <div className="preview-actions">
-                <button className="btn btn-outline btn-pill" onClick={() => showNotice(NOT_CONNECTED)}>Upload File</button>
+                {canEdit && (
+                  <>
+                    <button
+                      className="btn btn-outline btn-pill"
+                      onClick={startUpload}
+                      disabled={!!busy}
+                      title={UPLOADABLE[activeDoc] ? `Replace the ${UPLOADABLE[activeDoc].toLowerCase()}` : 'Open the Client-live-image or Signature to replace it'}
+                    >
+                      {busy === 'upload' ? 'Uploading…' : 'Upload File'}
+                    </button>
+                    <input ref={uploadInputRef} type="file" accept="image/png,image/jpeg" hidden onChange={onFilePicked} />
+                  </>
+                )}
                 <div className="preview-actions-right">
                   {activeDoc === 'livephoto' && normalizeRotation(rotation) !== 0 && !busy && (
                     <span className="unsaved-hint">Rotated {normalizeRotation(rotation)}° - not saved yet</span>
@@ -666,6 +720,16 @@ export default function ClientDetail() {
             </section>
           </div>
         </>
+      )}
+
+      {upload && (
+        <DocumentUploadModal
+          label={UPLOADABLE[upload.doc]}
+          file={upload.file}
+          prepared={upload.prepared}
+          onConfirm={confirmUpload}
+          onClose={() => { if (busy !== 'upload') setUpload(null); }}
+        />
       )}
 
       {confirmGenerate && (

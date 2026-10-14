@@ -1840,3 +1840,20 @@ table.data-table--compact {
   max-width: 360px;
   text-align: center;
 }
+
+/* Document upload confirmation */
+.upload-preview {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  margin-bottom: 12px;
+}
+
+.upload-preview img {
+  max-width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+}
