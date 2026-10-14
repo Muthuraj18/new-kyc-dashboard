@@ -11,6 +11,7 @@ import {
   AuditLogsIcon,
   TrashIcon,
   TableIcon,
+  LogsIcon,
   CaretDownIcon,
 } from './icons';
 import useFeatures from '../hooks/useFeatures';
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
     roles: ['Super Admin', 'Admin'],
     children: INTEGRATION_TABLES.map((t) => ({ to: `/tables/${t.key}`, label: t.label })),
   },
+  { to: '/kyc-logs', label: 'KYC Logs', Icon: LogsIcon, roles: ['Super Admin', 'Admin'] },
   { to: '/user-management', label: 'User Management', Icon: UserManagementIcon },
   { to: '/upload', label: 'Upload', Icon: UploadIcon },
   { to: '/audit-logs', label: 'Audit Logs', Icon: AuditLogsIcon, feature: 'auditLogs', roles: ['Super Admin'] },
