@@ -27,12 +27,13 @@ export default function Clients() {
   const [filters, setFilters] = useState({
     search: '',
     kycType: '',
+    dashboardStatus: '',
     status: '',
     stage: '',
     dateFrom: '',
     dateTo: '',
   });
-  const [filterOptions, setFilterOptions] = useState({ kycTypes: [], statuses: [], stages: [] });
+  const [filterOptions, setFilterOptions] = useState({ kycTypes: [], statuses: [], stages: [], dashboardStatuses: [] });
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -158,8 +159,13 @@ export default function Clients() {
           <option value="">All KYC Types</option>
           {filterOptions.kycTypes.map((v) => <option key={v} value={v}>{v}</option>)}
         </select>
+        {/* Dashboard-only status: esigned = Verify, everything else = In Progress */}
+        <select value={filters.dashboardStatus} onChange={handleFilterChange('dashboardStatus')} title="Verify = eSigned; In Progress = every other stage">
+          <option value="">All Clients</option>
+          {(filterOptions.dashboardStatuses || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
         <select value={filters.status} onChange={handleFilterChange('status')}>
-          <option value="">All Statuses</option>
+          <option value="">All KYC Statuses</option>
           {filterOptions.statuses.map((v) => <option key={v} value={v}>{formatLabel(v)}</option>)}
         </select>
         <select value={filters.stage} onChange={handleFilterChange('stage')}>
@@ -191,6 +197,7 @@ export default function Clients() {
                 <th>Email ID</th>
                 <th>Mobile Number</th>
                 <th>Current Stage</th>
+                <th>Status</th>
                 <th>KYC Status</th>
                 <th>CVL KRA</th>
                 <th>CDSL</th>
@@ -222,6 +229,9 @@ export default function Clients() {
                   <td>{orNa(r.email)}</td>
                   <td><CopyableCell value={r.mobile_number} /></td>
                   <td>{formatLabel(r.current_stage)}</td>
+                  <td>
+                    <span className={`pill ${r.dashboard_status === 'Verify' ? 'pill-completed' : 'pill-progress'}`}>{r.dashboard_status}</span>
+                  </td>
                   <td><StatusPill value={r.kyc_status} /></td>
                   <td><StatusPill value={r.cvlkra_push_status} /></td>
                   <td><StatusPill value={r.cdsl_push_status} /></td>
