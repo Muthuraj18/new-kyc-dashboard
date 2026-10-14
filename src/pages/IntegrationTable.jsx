@@ -77,7 +77,8 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved }) {
         )}
         <p className="table-row-note">
           Changes here update only <b>{row?.table || 'this table'}</b>. Client Details and the other
-          tables are not changed.
+          tables are not changed. Saving also sets this row's push status back to <b>Pending</b> so it
+          is pushed again.
         </p>
 
         {error ? <div className="form-error">{error}</div> : !row ? <div className="state-msg">Loading…</div> : (
@@ -248,7 +249,8 @@ export default function IntegrationTable() {
           uniqueId={openId}
           onClose={() => setOpenId(null)}
           onSaved={(res) => {
-            setNotice(`${res.updated.length} field${res.updated.length === 1 ? '' : 's'} saved in ${res.table} only (unique ID ${res.uniqueId}): ${res.updated.map((u) => u.field).join(', ')}.`);
+            const status = res.status?.reset ? ` ${res.status.field} reset to ${res.status.new} so it is pushed again.` : '';
+            setNotice(`${res.updated.length} field${res.updated.length === 1 ? '' : 's'} saved in ${res.table} only (unique ID ${res.uniqueId}): ${res.updated.map((u) => u.field).join(', ')}.${status}`);
             setTimeout(() => setNotice(''), 6000);
             setReload((n) => n + 1);
           }}
