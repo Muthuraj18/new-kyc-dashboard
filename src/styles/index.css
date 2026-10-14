@@ -1828,3 +1828,15 @@ table.data-table--compact {
   color: var(--success);
   font-size: 13.5px;
 }
+
+/* Aadhaar XML download (client detail) */
+.xml-download {
+  gap: 10px;
+}
+
+.xml-note {
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 360px;
+  text-align: center;
+}

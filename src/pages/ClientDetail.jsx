@@ -192,6 +192,7 @@ const DOCUMENTS = [
   { key: 'unsignedpdf', label: 'Unsigned pdf' },
   { key: 'esignedpdf', label: 'Esigned pdf' },
   { key: 'esignredirect', label: 'Esign Redirect Url' },
+  { key: 'aadhaarxml', label: 'Aadhaar XML' },
 ];
 
 const NOT_CONNECTED = 'Not connected to the backend yet.';
@@ -214,6 +215,7 @@ export default function ClientDetail() {
   const [notice, setNotice] = useState(null); // { text, error }
   const [busy, setBusy] = useState(''); // '' | 'save' | 'generate' - blocks double clicks
   const [confirmGenerate, setConfirmGenerate] = useState(false);
+  const [xmlBusy, setXmlBusy] = useState(false);
   const [docs, setDocs] = useState({}); // docKey -> { loading } | { error } | { type, url, fileName, searched }
   const previewRef = useRef(null);
   const { user } = useAuth();
@@ -252,7 +254,9 @@ export default function ClientDetail() {
 
   const loadDoc = (key) => {
     setDocs((d) => ({ ...d, [key]: { loading: true } }));
-    api.get(`/clients/${id}/documents/${key}`)
+    // Aadhaar XML is download-only and admin-only (pre-signed link from the backend).
+    const path = key === 'aadhaarxml' ? `/clients/${id}/aadhaar-xml` : `/clients/${id}/documents/${key}`;
+    api.get(path)
       .then(({ data }) => setDocs((d) => ({ ...d, [key]: data.data })))
       .catch((err) => setDocs((d) => ({
         ...d,
@@ -417,9 +421,50 @@ export default function ClientDetail() {
   const file = docs[activeDoc];
   const viewStyle = { transform: `scale(${zoom / 100}) rotate(${rotation}deg)` };
 
+  // Fresh 5-minute link per click (the bucket is private); the backend logs the download.
+  const downloadAadhaarXml = async () => {
+    setXmlBusy(true);
+    try {
+      const { data } = await api.get(`/clients/${id}/aadhaar-xml`, { params: { download: 1 } });
+      if (!data.data.available) {
+        setDocs((d) => ({ ...d, aadhaarxml: data.data }));
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = data.data.url;
+      a.download = data.data.fileName;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      showNotice(err.response?.data?.error || 'Could not download the Aadhaar XML', { error: true });
+    } finally {
+      setXmlBusy(false);
+    }
+  };
+
   function renderPreview() {
     if (!file || file.loading) return <div className="preview-empty"><span>Loading {doc.label}…</span></div>;
     if (file.error) return <div className="preview-empty"><strong>{doc.label}</strong><span>{file.error}</span></div>;
+    if (activeDoc === 'aadhaarxml') {
+      if (!file.available) {
+        return <div className="preview-empty"><strong>Aadhaar XML</strong><span>Aadhaar XML Not Available</span></div>;
+      }
+      return (
+        <div className="preview-empty xml-download">
+          <strong>Aadhaar XML</strong>
+          <span className="mono">{file.fileName}</span>
+          <span>
+            {(file.size / 1024).toFixed(1)} KB · uploaded {file.lastModified ? new Date(file.lastModified).toLocaleString() : 'N/A'}
+          </span>
+          <button className="btn btn-blue" onClick={downloadAadhaarXml} disabled={xmlBusy}>
+            {xmlBusy ? 'Preparing…' : 'Download XML'}
+          </button>
+          <span className="xml-note">Private file: the download link is valid for 5 minutes and every download is logged.</span>
+        </div>
+      );
+    }
     if (file.type === 'link') {
       return file.url ? (
         <div className="preview-empty preview-link">
@@ -565,7 +610,7 @@ export default function ClientDetail() {
             <section className="detail-panel">
               <div className="detail-panel-title">Documents</div>
               <ul className="doc-list">
-                {DOCUMENTS.map((d) => (
+                {DOCUMENTS.filter((d) => d.key !== 'aadhaarxml' || canEdit).map((d) => (
                   <li key={d.key}>
                     <button
                       className={`doc-item ${activeDoc === d.key ? 'active' : ''}`}
