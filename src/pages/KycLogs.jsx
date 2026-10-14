@@ -26,18 +26,33 @@ function downloadCsv(name, client, modules) {
   URL.revokeObjectURL(url);
 }
 
+// All clients, paginated on the server (the list grows every day).
 function ClientPicker({ onPick }) {
   const [search, setSearch] = useState('');
-  const [rows, setRows] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [result, setResult] = useState(null); // { rows, total, page, pageSize, totalPages }
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const rows = result?.rows;
+
   useEffect(() => {
     const t = setTimeout(() => {
-      api.get('/kyc-logs/clients', { params: { search: search || undefined } })
-        .then(({ data }) => setRows(data.data))
-        .catch((err) => setError(err.response?.data?.error || 'Failed to search clients'));
+      setLoading(true);
+      setError('');
+      api.get('/kyc-logs/clients', { params: { search: search || undefined, page, pageSize } })
+        // Older backends returned a plain array (first 20 only); accept both shapes.
+        .then(({ data }) => setResult(Array.isArray(data.data)
+          ? { rows: data.data, total: data.data.length, page: 1, pageSize: data.data.length || 25, totalPages: 1 }
+          : data.data))
+        .catch((err) => setError(err.response?.data?.error || 'Failed to search clients'))
+        .finally(() => setLoading(false));
     }, search ? 350 : 0);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [search, page, pageSize]);
+
+  const from = result && result.total ? (result.page - 1) * result.pageSize + 1 : 0;
+  const to = result ? Math.min(result.page * result.pageSize, result.total) : 0;
 
   return (
     <>
@@ -46,7 +61,7 @@ function ClientPicker({ onPick }) {
           type="text"
           placeholder="Search unique ID, client code, PAN, name, mobile, email…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setPage(1); setSearch(e.target.value); }}
           style={{ flex: 1, minWidth: 260 }}
           autoFocus
         />
@@ -73,6 +88,28 @@ function ClientPicker({ onPick }) {
               ))}
             </tbody>
           </table>
+        )}
+        {result && result.total > 0 && (
+          <div className="pagination">
+            <span>
+              Showing {from}–{to} of {result.total} client{result.total === 1 ? '' : 's'}
+              {loading ? ' · loading…' : ''}
+            </span>
+            <div className="pagination-controls">
+              <select
+                value={pageSize}
+                onChange={(e) => { setPage(1); setPageSize(Number(e.target.value)); }}
+                aria-label="Rows per page"
+              >
+                {[25, 50, 100].map((n) => <option key={n} value={n}>{n} / page</option>)}
+              </select>
+              <button className="btn btn-outline btn-sm" disabled={page <= 1 || loading} onClick={() => setPage(1)}>First</button>
+              <button className="btn btn-outline btn-sm" disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>Previous</button>
+              <span className="page-gap">Page {result.page} of {result.totalPages}</span>
+              <button className="btn btn-outline btn-sm" disabled={page >= result.totalPages || loading} onClick={() => setPage((p) => p + 1)}>Next</button>
+              <button className="btn btn-outline btn-sm" disabled={page >= result.totalPages || loading} onClick={() => setPage(result.totalPages)}>Last</button>
+            </div>
+          </div>
         )}
       </div>
     </>
