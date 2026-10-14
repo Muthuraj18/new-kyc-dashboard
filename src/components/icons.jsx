@@ -169,3 +169,10 @@ export const BellIcon = (props) => (
     <path d="M10.2 19a2 2 0 0 0 3.6 0" />
   </svg>
 );
+
+export const TableIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="nav-icon" {...base} {...props}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+    <path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10" />
+  </svg>
+);

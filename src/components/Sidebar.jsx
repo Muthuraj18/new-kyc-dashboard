@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   DashboardIcon,
   ClientsIcon,
@@ -9,9 +10,20 @@ import {
   UploadIcon,
   AuditLogsIcon,
   TrashIcon,
+  TableIcon,
+  CaretDownIcon,
 } from './icons';
 import useFeatures from '../hooks/useFeatures';
 import { useAuth } from '../context/AuthContext';
+
+// Integration tables editable from the Tables menu (keys match GET /api/tables).
+export const INTEGRATION_TABLES = [
+  { key: 'cvlkra', label: 'CVLKRA' },
+  { key: 'cdsl', label: 'CDSL' },
+  { key: 'nse', label: 'NSE' },
+  { key: 'bse', label: 'BSE' },
+  { key: 'techexcel', label: 'TECHEXCEL' },
+];
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', Icon: DashboardIcon },
@@ -19,11 +31,50 @@ const NAV_ITEMS = [
   { to: '/payments', label: 'Payments', Icon: PaymentsIcon },
   { to: '/kyc-status', label: 'KYC Status', Icon: KycStatusIcon },
   { to: '/integrations', label: 'Integrations', Icon: IntegrationsIcon },
+  {
+    to: '/tables',
+    label: 'Tables',
+    Icon: TableIcon,
+    roles: ['Super Admin', 'Admin'],
+    children: INTEGRATION_TABLES.map((t) => ({ to: `/tables/${t.key}`, label: t.label })),
+  },
   { to: '/user-management', label: 'User Management', Icon: UserManagementIcon },
   { to: '/upload', label: 'Upload', Icon: UploadIcon },
   { to: '/audit-logs', label: 'Audit Logs', Icon: AuditLogsIcon, feature: 'auditLogs', roles: ['Super Admin'] },
   { to: '/trash', label: 'Trash', Icon: TrashIcon, feature: 'trash', roles: ['Super Admin'] },
 ];
+
+function NavGroup({ item }) {
+  const { pathname } = useLocation();
+  const inside = pathname.startsWith(item.to);
+  const [open, setOpen] = useState(inside);
+  const { Icon } = item;
+  return (
+    <li>
+      <button
+        type="button"
+        className={`nav-item nav-group-toggle${inside ? ' active' : ''}`}
+        aria-expanded={open || inside}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <Icon />
+        <span>{item.label}</span>
+        <CaretDownIcon className={`ui-icon nav-caret${open || inside ? ' open' : ''}`} />
+      </button>
+      {(open || inside) && (
+        <ul className="nav-sublist">
+          {item.children.map((c) => (
+            <li key={c.to}>
+              <NavLink to={c.to} className={({ isActive }) => `nav-subitem${isActive ? ' active' : ''}`}>
+                {c.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
 
 export default function Sidebar() {
   const features = useFeatures();
@@ -41,14 +92,16 @@ export default function Sidebar() {
       </div>
 
       <ul className="nav-list">
-        {items.map(({ to, label, Icon }) => (
-          <li key={to}>
-            <NavLink to={to} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-              <Icon />
-              <span>{label}</span>
+        {items.map((item) => (item.children ? (
+          <NavGroup key={item.to} item={item} />
+        ) : (
+          <li key={item.to}>
+            <NavLink to={item.to} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+              <item.Icon />
+              <span>{item.label}</span>
             </NavLink>
           </li>
-        ))}
+        )))}
       </ul>
     </aside>
   );
