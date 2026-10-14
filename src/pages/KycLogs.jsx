@@ -27,8 +27,111 @@ function downloadCsv(name, client, modules) {
 }
 
 // All clients, paginated on the server (the list grows every day).
+const LOG_MODULES = [
+  { key: 'mobile_otp', label: 'Mobile OTP' },
+  { key: 'email_otp', label: 'Email OTP' },
+  { key: 'pan', label: 'PAN' },
+  { key: 'personal', label: 'Personal Details' },
+  { key: 'nominee', label: 'Nominee' },
+  { key: 'signature', label: 'Signature' },
+  { key: 'bank', label: 'Bank' },
+  { key: 'penny_drop', label: 'Penny Drop' },
+  { key: 'ipv', label: 'IPV / Live Photo' },
+  { key: 'esign', label: 'eSign' },
+];
+const EMPTY_FILTERS = { kycType: '', dashboardStatus: '', stage: '', dateFrom: '', dateTo: '' };
+
+// Server-side export of ALL matching clients' logs (the file is built by the backend).
+function ExportPanel({ filters }) {
+  const [modules, setModules] = useState(LOG_MODULES.map((m) => m.key));
+  const [eventFrom, setEventFrom] = useState('');
+  const [eventTo, setEventTo] = useState('');
+  const [onlyIssues, setOnlyIssues] = useState(false);
+  const [format, setFormat] = useState('xlsx');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+
+  const toggle = (k) => setModules((m) => (m.includes(k) ? m.filter((x) => x !== k) : [...m, k]));
+  const run = async () => {
+    setBusy(true);
+    setError('');
+    setResult(null);
+    try {
+      const clean = Object.fromEntries(Object.entries(filters).filter(([, v]) => v));
+      const { data } = await api.post('/kyc-logs/export', {
+        filters: clean, modules, eventFrom: eventFrom || undefined, eventTo: eventTo || undefined, onlyIssues, format,
+      });
+      setResult(data.data);
+      if (data.data.rows > 0) {
+        const a = document.createElement('a');
+        a.href = data.data.url;
+        a.download = data.data.fileName;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Export failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="table-card export-panel">
+      <div className="export-head">
+        <strong>Download All Logs</strong>
+        <span>Every client matching the filters above, not just this page. Built on the server.</span>
+      </div>
+      <div className="export-modules">
+        {LOG_MODULES.map((m) => (
+          <label key={m.key} className="ack-row" style={{ margin: 0 }}>
+            <input type="checkbox" checked={modules.includes(m.key)} onChange={() => toggle(m.key)} disabled={busy} />
+            <span>{m.label}</span>
+          </label>
+        ))}
+        <button type="button" className="link-btn" onClick={() => setModules(modules.length === LOG_MODULES.length ? [] : LOG_MODULES.map((m) => m.key))}>
+          {modules.length === LOG_MODULES.length ? 'Clear all' : 'Select all'}
+        </button>
+      </div>
+      <div className="export-options">
+        <label>Log date from <input type="date" value={eventFrom} onChange={(e) => setEventFrom(e.target.value)} disabled={busy} /></label>
+        <label>to <input type="date" value={eventTo} onChange={(e) => setEventTo(e.target.value)} disabled={busy} /></label>
+        <label className="ack-row" style={{ margin: 0 }}>
+          <input type="checkbox" checked={onlyIssues} onChange={(e) => setOnlyIssues(e.target.checked)} disabled={busy} />
+          <span>Errors / failures only</span>
+        </label>
+        <select value={format} onChange={(e) => setFormat(e.target.value)} disabled={busy} aria-label="Format">
+          <option value="xlsx">Excel (.xlsx)</option>
+          <option value="csv">CSV</option>
+        </select>
+        <button className="btn btn-primary btn-sm" onClick={run} disabled={busy || !modules.length}>
+          {busy ? 'Preparing file…' : 'Download All Logs'}
+        </button>
+      </div>
+      {error && <div className="form-error" style={{ marginTop: 10, marginBottom: 0 }}>{error}</div>}
+      {result && (
+        <div className="export-result">
+          {result.rows === 0
+            ? 'No logs available for the selected filters.'
+            : <>Exported {result.rows.toLocaleString()} log rows for {result.clients.toLocaleString()} clients ({(result.sizeBytes / 1024).toFixed(0)} KB). If the download didn&apos;t start, <a href={result.url} download={result.fileName}>click here</a> (link valid 15 minutes).</>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ClientPicker({ onPick }) {
   const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [stages, setStages] = useState([]);
+  useEffect(() => {
+    api.get('/kyc-logs/stages').then(({ data }) => setStages(data.data || [])).catch(() => {});
+  }, []);
+  const setFilter = (k) => (e) => { setPage(1); setFilters((f) => ({ ...f, [k]: e.target.value })); };
+  const activeCount = Object.values(filters).filter(Boolean).length;
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [result, setResult] = useState(null); // { rows, total, page, pageSize, totalPages }
@@ -40,7 +143,9 @@ function ClientPicker({ onPick }) {
     const t = setTimeout(() => {
       setLoading(true);
       setError('');
-      api.get('/kyc-logs/clients', { params: { search: search || undefined, page, pageSize } })
+      const params = { search: search || undefined, page, pageSize };
+      Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
+      api.get('/kyc-logs/clients', { params })
         // Older backends returned a plain array (first 20 only); accept both shapes.
         .then(({ data }) => setResult(Array.isArray(data.data)
           ? { rows: data.data, total: data.data.length, page: 1, pageSize: data.data.length || 25, totalPages: 1 }
@@ -49,7 +154,7 @@ function ClientPicker({ onPick }) {
         .finally(() => setLoading(false));
     }, search ? 350 : 0);
     return () => clearTimeout(t);
-  }, [search, page, pageSize]);
+  }, [search, filters, page, pageSize]);
 
   const from = result && result.total ? (result.page - 1) * result.pageSize + 1 : 0;
   const to = result ? Math.min(result.page * result.pageSize, result.total) : 0;
@@ -66,6 +171,29 @@ function ClientPicker({ onPick }) {
           autoFocus
         />
       </div>
+      <div className="filters-bar custom-filters">
+        <strong className="custom-filters-title">Custom data{activeCount ? ` (${activeCount})` : ''}</strong>
+        <select value={filters.kycType} onChange={setFilter('kycType')} aria-label="KYC type">
+          <option value="">All KYC Types</option>
+          <option value="PRE KYC">PRE KYC</option>
+          <option value="KYC">KYC</option>
+        </select>
+        <select value={filters.dashboardStatus} onChange={setFilter('dashboardStatus')} aria-label="Status">
+          <option value="">All Clients</option>
+          <option value="verify">Verify</option>
+          <option value="in_progress">In Progress</option>
+        </select>
+        <select value={filters.stage} onChange={setFilter('stage')} aria-label="Stage">
+          <option value="">All Stages</option>
+          {stages.map((st) => <option key={st.stage} value={st.stage}>{st.stage} ({st.clients})</option>)}
+        </select>
+        <label className="date-filter">Applied from <input type="date" value={filters.dateFrom} onChange={setFilter('dateFrom')} /></label>
+        <label className="date-filter">to <input type="date" value={filters.dateTo} onChange={setFilter('dateTo')} /></label>
+        {activeCount > 0 && (
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => { setPage(1); setFilters(EMPTY_FILTERS); }}>Clear</button>
+        )}
+      </div>
+      <ExportPanel filters={{ ...filters, search }} />
       <div className="table-card">
         {error ? <div className="state-msg">{error}</div> : !rows ? <div className="state-msg">Loading…</div> : !rows.length ? (
           <div className="state-msg">No clients found.</div>

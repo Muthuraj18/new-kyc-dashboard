@@ -1963,3 +1963,75 @@ table.data-table--compact {
   color: var(--text);
   font-size: 12.5px;
 }
+
+/* KYC Logs: custom data filters + bulk export */
+.custom-filters {
+  align-items: center;
+}
+
+.custom-filters-title {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.date-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.export-panel {
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  overflow: visible;
+}
+
+.export-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.export-head span {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.export-modules,
+.export-options {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.export-options {
+  margin-top: 10px;
+}
+
+.export-options label:not(.ack-row) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.export-options input[type='date'],
+.export-options select {
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+.export-result {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--success);
+}
