@@ -14,6 +14,14 @@ import { formatDate, formatLabel, orNa } from '../utils/format';
 const PAGE_SIZE = 25;
 const CLIENT_ACTION_ROLES = ['Super Admin', 'Admin'];
 
+// Dashboard-only status (same rule as the backend): esigned -> Verify, else In Progress.
+const DASHBOARD_STATUSES = [
+  { value: 'verify', label: 'Verify' },
+  { value: 'in_progress', label: 'In Progress' },
+];
+const dashboardStatusOf = (r) => r.dashboard_status
+  || (String(r.current_stage || '').trim().toLowerCase() === 'esigned' ? 'Verify' : 'In Progress');
+
 // Common reasons offered in the Skip Payment popup ("Other" is added automatically).
 const SKIP_PAYMENT_REASONS = [
   'Payment collected offline (cash / bank transfer)',
@@ -162,7 +170,7 @@ export default function Clients() {
         {/* Dashboard-only status: esigned = Verify, everything else = In Progress */}
         <select value={filters.dashboardStatus} onChange={handleFilterChange('dashboardStatus')} title="Verify = eSigned; In Progress = every other stage">
           <option value="">All Clients</option>
-          {(filterOptions.dashboardStatuses || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {DASHBOARD_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <select value={filters.status} onChange={handleFilterChange('status')}>
           <option value="">All KYC Statuses</option>
@@ -230,7 +238,7 @@ export default function Clients() {
                   <td><CopyableCell value={r.mobile_number} /></td>
                   <td>{formatLabel(r.current_stage)}</td>
                   <td>
-                    <span className={`pill ${r.dashboard_status === 'Verify' ? 'pill-completed' : 'pill-progress'}`}>{r.dashboard_status}</span>
+                    <span className={`pill ${dashboardStatusOf(r) === 'Verify' ? 'pill-completed' : 'pill-progress'}`}>{dashboardStatusOf(r)}</span>
                   </td>
                   <td><StatusPill value={r.kyc_status} /></td>
                   <td><StatusPill value={r.cvlkra_push_status} /></td>
