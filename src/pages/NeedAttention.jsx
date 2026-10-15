@@ -6,6 +6,18 @@ import { useAuth } from '../context/AuthContext';
 
 const VIEW_ROLES = ['Super Admin', 'Admin'];
 const fmtDate = (v) => (v ? new Date(v).toLocaleString() : 'N/A');
+// Local calendar day (YYYY-MM-DD) of a timestamp, matching the date shown in Last Updated.
+const localDay = (v) => {
+  const d = new Date(v);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+// From / To are inclusive; either may be empty. Rows without a time only show with no range.
+const inDateRange = (v, from, to) => {
+  if (!from && !to) return true;
+  if (!v) return false;
+  const day = localDay(v);
+  return (!from || day >= from) && (!to || day <= to);
+};
 
 // Need Attention: integration records (CVLKRA / CDSL / NSE / BSE / TECHEXCEL) whose push
 // status is Rejected / Failed / Error, read live on every load. One row per rejected
@@ -19,6 +31,8 @@ export default function NeedAttention() {
   const [error, setError] = useState('');
   const [module, setModule] = useState('');
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [reload, setReload] = useState(0);
   const allowed = VIEW_ROLES.includes(user?.role);
 
@@ -34,8 +48,9 @@ export default function NeedAttention() {
     const term = search.trim().toLowerCase();
     return (data?.rows || []).filter((r) => (!module || r.module === module)
       && (!term || [r.unique_id, r.client_code, r.pan, r.client_name, r.reason]
-        .some((v) => String(v || '').toLowerCase().includes(term))));
-  }, [data, module, search]);
+        .some((v) => String(v || '').toLowerCase().includes(term)))
+      && inDateRange(r.updated_at, dateFrom, dateTo));
+  }, [data, module, search, dateFrom, dateTo]);
 
   const open = (r) => navigate(`/tables/${r.module}?open=${encodeURIComponent(r.unique_id)}`);
 
@@ -59,6 +74,9 @@ export default function NeedAttention() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <label className="date-filter">From <input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)} /></label>
+        <label className="date-filter">To <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)} /></label>
+        {(dateFrom || dateTo) && <button className="btn btn-outline" onClick={() => { setDateFrom(''); setDateTo(''); }}>Clear dates</button>}
         <button className="btn btn-outline" onClick={() => setReload((n) => n + 1)}>Refresh</button>
       </div>
 
@@ -67,6 +85,7 @@ export default function NeedAttention() {
           {data.rows.length
             ? `${data.rows.length} rejected record${data.rows.length === 1 ? '' : 's'} across ${data.clients} client${data.clients === 1 ? '' : 's'}. Click a row to open it in Tables.`
             : 'No rejected integration records right now.'}
+          {data.hiddenBeforeCutoff > 0 && data.cutoff && ` ${data.hiddenBeforeCutoff} ${data.cutoff.modules.join(' / ')} rejection${data.hiddenBeforeCutoff === 1 ? '' : 's'} from before ${new Date(data.cutoff.from).toLocaleDateString()} hidden.`}
           {data.excludedCompleted > 0 && ` ${data.excludedCompleted} old rejection${data.excludedCompleted === 1 ? '' : 's'} hidden because the client is Completed.`}
           {data.completedCheck === false && ' Completed status could not be checked, so completed clients may also be listed.'}
           {data.errors.length > 0 && ` Could not read: ${data.errors.map((e) => e.label).join(', ')}.`}
