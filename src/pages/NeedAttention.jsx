@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Layout from '../components/Layout';
+import CopyableCell from '../components/CopyableCell';
 import { useAuth } from '../context/AuthContext';
 
 const VIEW_ROLES = ['Super Admin', 'Admin'];
@@ -116,10 +117,17 @@ export default function NeedAttention() {
                 const key = `${r.module}-${r.unique_id}`;
                 return (
                   <Fragment key={key}>
-                    <tr className="clickable-row" onClick={() => open(r)}>
+                    <tr
+                      className="clickable-row"
+                      onClick={(e) => {
+                        // Copy / View response / Open buttons handle their own clicks.
+                        if (e.target.closest('button, a')) return;
+                        open(r);
+                      }}
+                    >
                       <td className="mono">{r.unique_id}</td>
-                      <td>{r.client_code || 'N/A'}</td>
-                      <td className="mono">{r.pan || 'N/A'}</td>
+                      <td><CopyableCell value={r.client_code} /></td>
+                      <td className="mono"><CopyableCell value={r.pan} /></td>
                       <td>{r.client_name || 'N/A'}</td>
                       <td><b>{r.module_label}</b></td>
                       <td><span className="pill pill-no">{r.status}</span></td>
