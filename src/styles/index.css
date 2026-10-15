@@ -2103,3 +2103,60 @@ table.data-table--compact {
 .column-picker-reset {
   margin-top: 8px;
 }
+.column-picker-note {
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--active-bg);
+  color: var(--active-text);
+  font-size: 12px;
+}
+.column-picker-group {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+.column-picker-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+}
+.column-picker-group-head input {
+  accent-color: var(--accent);
+}
+.column-picker-group-head button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+.column-picker-group-head small {
+  margin-left: auto;
+  color: var(--muted);
+  font-weight: 500;
+}
+.column-picker-group-list {
+  padding-left: 18px;
+}
+.column-picker-group-list .column-picker-item {
+  text-transform: none;
+  font-weight: 500;
+}
+.extra-cell {
+  display: inline-block;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}

@@ -44,8 +44,9 @@ function loadColumns() {
   try {
     const saved = JSON.parse(localStorage.getItem(COLUMNS_STORAGE_KEY) || 'null');
     if (Array.isArray(saved)) {
+      // Extra table columns ("alias.column") are kept and checked once the column list loads.
       const known = new Set(DEFAULT_COLUMNS);
-      return new Set([...saved.filter((k) => known.has(k)), ...CLIENT_COLUMNS.filter((c) => c.locked).map((c) => c.key)]);
+      return new Set([...saved.filter((k) => known.has(k) || String(k).includes('.')), ...CLIENT_COLUMNS.filter((c) => c.locked).map((c) => c.key)]);
     }
   } catch { /* unreadable or blocked storage: use the defaults */ }
   return new Set(DEFAULT_COLUMNS);
@@ -90,12 +91,31 @@ export default function Clients() {
     setVisibleColumns(next);
     try { localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify([...next])); } catch { /* storage blocked: keep for this visit only */ }
   };
+  // Every column of kyc_master_details and the integration tables (Columns dropdown).
+  const [extraGroups, setExtraGroups] = useState([]);
+  const [maxExtra, setMaxExtra] = useState(150);
+  const extraByKey = useMemo(() => new Map(extraGroups.flatMap((g) => g.columns.map((c) => [c.key, { ...c, group: g.label }]))), [extraGroups]);
+  // Chosen extra columns, in dropdown order, as the "cols" request value.
+  const extraCols = useMemo(
+    () => extraGroups.flatMap((g) => g.columns.map((c) => c.key)).filter((k) => visibleColumns.has(k)).join(','),
+    [extraGroups, visibleColumns]
+  );
   const { user } = useAuth();
   const features = useFeatures();
   const navigate = useNavigate();
 
   useEffect(() => {
     api.get('/clients/filters').then(({ data }) => setFilterOptions(data)).catch(() => {});
+    api.get('/clients/columns')
+      .then(({ data }) => {
+        const groups = data.data.groups.map((g) => ({ ...g, columns: g.columns.map((c) => ({ key: c.key, label: c.name })) }));
+        setExtraGroups(groups);
+        setMaxExtra(data.data.maxExtra || 150);
+        // Drop saved extra columns that no longer exist.
+        const known = new Set(groups.flatMap((g) => g.columns.map((c) => c.key)));
+        setVisibleColumns((v) => new Set([...v].filter((k) => !k.includes('.') || known.has(k))));
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -104,13 +124,13 @@ export default function Clients() {
     }, filters.search ? 350 : 0);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, page]);
+  }, [filters, page, extraCols]);
 
   async function fetchClients() {
     setLoading(true);
     setError('');
     try {
-      const params = { ...filters, page, pageSize: PAGE_SIZE };
+      const params = { ...filters, page, pageSize: PAGE_SIZE, cols: extraCols };
       Object.keys(params).forEach((k) => { if (!params[k]) delete params[k]; });
       const { data } = await api.get('/clients', { params });
       setRows(data.data);
@@ -130,7 +150,7 @@ export default function Clients() {
   };
 
   const handleExport = async () => {
-    const params = { ...filters };
+    const params = { ...filters, cols: extraCols };
     Object.keys(params).forEach((k) => { if (!params[k]) delete params[k]; });
     const response = await api.get('/clients/export', { params, responseType: 'blob' });
     const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -187,7 +207,12 @@ export default function Clients() {
     }
   };
 
-  const shownColumns = CLIENT_COLUMNS.filter((c) => visibleColumns.has(c.key));
+  // Standard columns first (Action/Edit last), then the chosen extra table columns.
+  const shownColumns = [
+    ...CLIENT_COLUMNS.filter((c) => !c.locked && visibleColumns.has(c.key)),
+    ...extraGroups.flatMap((g) => g.columns.filter((c) => visibleColumns.has(c.key)).map((c) => ({ key: c.key, label: `${g.label} · ${c.label}` }))),
+    ...CLIENT_COLUMNS.filter((c) => c.locked),
+  ];
 
   function renderCell(key, r) {
     switch (key) {
@@ -225,7 +250,12 @@ export default function Clients() {
             onDelete={canAct ? () => setReasonAction({ type: 'delete', record: r }) : undefined}
           />
         );
-      default: return null;
+      default: {
+        if (!extraByKey.has(key)) return null;
+        const v = r[`x:${key}`];
+        if (v === null || v === undefined || v === '') return <span className="na">N/A</span>;
+        return <span className="extra-cell" title={v}>{v}</span>;
+      }
     }
   }
 
@@ -261,7 +291,14 @@ export default function Clients() {
         </select>
         <input type="date" value={filters.dateFrom} onChange={handleFilterChange('dateFrom')} />
         <input type="date" value={filters.dateTo} onChange={handleFilterChange('dateTo')} />
-        <ColumnPicker columns={CLIENT_COLUMNS} visible={visibleColumns} onChange={changeColumns} defaults={DEFAULT_COLUMNS} />
+        <ColumnPicker
+          columns={CLIENT_COLUMNS}
+          groups={extraGroups}
+          maxExtra={maxExtra}
+          visible={visibleColumns}
+          onChange={changeColumns}
+          defaults={DEFAULT_COLUMNS}
+        />
         <button className="btn btn-primary" onClick={handleExport}>Export &#8595;</button>
       </div>
 
