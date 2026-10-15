@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, Navigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, Navigate } from 'react-router-dom';
 import api from '../api';
 import Layout from '../components/Layout';
 import { INTEGRATION_TABLES } from '../components/Sidebar';
@@ -149,6 +149,9 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved }) {
 
 export default function IntegrationTable() {
   const { table } = useParams();
+  // ?open=<unique_id> (from Need Attention): filter to that client and open its row.
+  const [searchParams] = useSearchParams();
+  const openParam = searchParams.get('open');
   const navigate = useNavigate();
   const { user } = useAuth();
   const def = INTEGRATION_TABLES.find((t) => t.key === table);
@@ -160,7 +163,7 @@ export default function IntegrationTable() {
   const [notice, setNotice] = useState('');
   const [reload, setReload] = useState(0);
 
-  useEffect(() => { setPage(1); setSearch(''); setOpenId(null); }, [table]);
+  useEffect(() => { setPage(1); setSearch(openParam || ''); setOpenId(openParam || null); }, [table, openParam]);
 
   useEffect(() => {
     if (!def) return undefined;

@@ -12,6 +12,7 @@ import {
   TrashIcon,
   TableIcon,
   LogsIcon,
+  AlertIcon,
   CaretDownIcon,
 } from './icons';
 import useFeatures from '../hooks/useFeatures';
@@ -29,6 +30,7 @@ export const INTEGRATION_TABLES = [
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', Icon: DashboardIcon },
   { to: '/clients', label: 'Clients', Icon: ClientsIcon },
+  { to: '/need-attention', label: 'Need Attention', Icon: AlertIcon, roles: ['Super Admin', 'Admin'] },
   { to: '/payments', label: 'Payments', Icon: PaymentsIcon },
   { to: '/kyc-status', label: 'KYC Status', Icon: KycStatusIcon },
   { to: '/integrations', label: 'Integrations', Icon: IntegrationsIcon },
