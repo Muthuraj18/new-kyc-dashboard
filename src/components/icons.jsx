@@ -183,3 +183,10 @@ export const LogsIcon = (props) => (
     <path d="M12 7.5V12l3 2" />
   </svg>
 );
+
+export const AlertIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="nav-icon" {...base} {...props}>
+    <path d="M12 3.5 21 19.5H3z" />
+    <path d="M12 10v4.5M12 17h.01" />
+  </svg>
+);
