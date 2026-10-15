@@ -10,7 +10,8 @@ const fmtDate = (v) => (v ? new Date(v).toLocaleString() : 'N/A');
 // Need Attention: integration records (CVLKRA / CDSL / NSE / BSE / TECHEXCEL) whose push
 // status is Rejected / Failed / Error, read live on every load. One row per rejected
 // module; clicking it opens that client's record in Tables -> <module>. A record drops off
-// as soon as its status is no longer rejected (e.g. after an edit resets it to Pending).
+// as soon as its status is no longer rejected (e.g. after an edit resets it to Pending) or
+// the client's Status becomes Completed (Re-KYC match, checked by the backend).
 export default function NeedAttention() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -66,6 +67,8 @@ export default function NeedAttention() {
           {data.rows.length
             ? `${data.rows.length} rejected record${data.rows.length === 1 ? '' : 's'} across ${data.clients} client${data.clients === 1 ? '' : 's'}. Click a row to open it in Tables.`
             : 'No rejected integration records right now.'}
+          {data.excludedCompleted > 0 && ` ${data.excludedCompleted} old rejection${data.excludedCompleted === 1 ? '' : 's'} hidden because the client is Completed.`}
+          {data.completedCheck === false && ' Completed status could not be checked, so completed clients may also be listed.'}
           {data.errors.length > 0 && ` Could not read: ${data.errors.map((e) => e.label).join(', ')}.`}
         </div>
       )}
