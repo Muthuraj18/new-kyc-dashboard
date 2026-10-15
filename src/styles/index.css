@@ -2035,3 +2035,71 @@ table.data-table--compact {
   font-size: 13px;
   color: var(--success);
 }
+
+/* Column picker (Columns dropdown on tables) */
+.column-picker {
+  position: relative;
+}
+.column-picker > .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.column-picker-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 50;
+  width: 260px;
+  max-width: calc(100vw - 32px);
+  padding: 10px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.14);
+  color: var(--text);
+}
+.column-picker-search {
+  width: 100%;
+  padding: 7px 10px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text);
+}
+.column-picker-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.column-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.column-picker-item:hover {
+  background: var(--active-bg);
+}
+.column-picker-item input {
+  accent-color: var(--accent);
+}
+.column-picker-all {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+  padding-bottom: 8px;
+}
+.column-picker-empty {
+  padding: 8px 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.column-picker-reset {
+  margin-top: 8px;
+}
