@@ -201,7 +201,6 @@ export default function Clients() {
                 <th>Mobile Number</th>
                 <th>Current Stage</th>
                 <th>Status</th>
-                <th>KYC Status</th>
                 <th>CVL KRA</th>
                 <th>CDSL</th>
                 <th>NSE</th>
@@ -234,7 +233,6 @@ export default function Clients() {
                   <td>{formatLabel(r.current_stage)}</td>
                   {/* Re-KYC match only: Completed, otherwise blank */}
                   <td>{r.rekyc_status === 'Completed' && <span className="pill pill-completed">Completed</span>}</td>
-                  <td><StatusPill value={r.kyc_status} /></td>
                   <td><StatusPill value={r.cvlkra_push_status} /></td>
                   <td><StatusPill value={r.cdsl_push_status} /></td>
                   <td><StatusPill value={r.nse_push_status} /></td>
