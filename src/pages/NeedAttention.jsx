@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Layout from '../components/Layout';
@@ -34,6 +34,7 @@ export default function NeedAttention() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [reload, setReload] = useState(0);
+  const [shownResponse, setShownResponse] = useState(null); // "<module>-<unique_id>" whose full response is open
   const allowed = VIEW_ROLES.includes(user?.role);
 
   useEffect(() => {
@@ -111,23 +112,45 @@ export default function NeedAttention() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={`${r.module}-${r.unique_id}`} className="clickable-row" onClick={() => open(r)}>
-                  <td className="mono">{r.unique_id}</td>
-                  <td>{r.client_code || 'N/A'}</td>
-                  <td className="mono">{r.pan || 'N/A'}</td>
-                  <td>{r.client_name || 'N/A'}</td>
-                  <td><b>{r.module_label}</b></td>
-                  <td><span className="pill pill-no">{r.status}</span></td>
-                  <td style={{ maxWidth: 360, whiteSpace: 'normal', textAlign: 'left' }}>{r.reason || <span className="na">Not recorded</span>}</td>
-                  <td>{fmtDate(r.updated_at)}</td>
-                  <td>
-                    <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); open(r); }}>
-                      Open in {r.module_label}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const key = `${r.module}-${r.unique_id}`;
+                return (
+                  <Fragment key={key}>
+                    <tr className="clickable-row" onClick={() => open(r)}>
+                      <td className="mono">{r.unique_id}</td>
+                      <td>{r.client_code || 'N/A'}</td>
+                      <td className="mono">{r.pan || 'N/A'}</td>
+                      <td>{r.client_name || 'N/A'}</td>
+                      <td><b>{r.module_label}</b></td>
+                      <td><span className="pill pill-no">{r.status}</span></td>
+                      <td style={{ maxWidth: 360, whiteSpace: 'normal', textAlign: 'left' }}>
+                        {r.reason || <span className="na">Not recorded</span>}
+                        {r.response && (
+                          <div>
+                            <button className="link-btn" onClick={(e) => { e.stopPropagation(); setShownResponse((k) => (k === key ? null : key)); }}>
+                              {shownResponse === key ? 'Hide response' : 'View response'}
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                      <td>{fmtDate(r.updated_at)}</td>
+                      <td>
+                        <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); open(r); }}>
+                          Open in {r.module_label}
+                        </button>
+                      </td>
+                    </tr>
+                    {shownResponse === key && (
+                      <tr>
+                        <td colSpan={9} style={{ textAlign: 'left' }}>
+                          <strong>{r.module_label} response</strong>
+                          <pre style={{ margin: '6px 0 0', maxHeight: 320, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12 }}>{r.response}</pre>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         )}
