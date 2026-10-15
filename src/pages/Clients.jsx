@@ -15,12 +15,12 @@ const PAGE_SIZE = 25;
 const CLIENT_ACTION_ROLES = ['Super Admin', 'Admin'];
 
 // Dashboard-only status (same rule as the backend): esigned -> Verify, else In Progress.
+// Used by the filter dropdown; the Status column shows the Re-KYC match (rekyc_status).
 const DASHBOARD_STATUSES = [
   { value: 'verify', label: 'Verify' },
   { value: 'in_progress', label: 'In Progress' },
+  { value: 'completed', label: 'Completed' }, // Re-KYC client_id + PAN match
 ];
-const dashboardStatusOf = (r) => r.dashboard_status
-  || (String(r.current_stage || '').trim().toLowerCase() === 'esigned' ? 'Verify' : 'In Progress');
 
 // Common reasons offered in the Skip Payment popup ("Other" is added automatically).
 const SKIP_PAYMENT_REASONS = [
@@ -36,7 +36,6 @@ export default function Clients() {
     search: '',
     kycType: '',
     dashboardStatus: '',
-    status: '',
     stage: '',
     dateFrom: '',
     dateTo: '',
@@ -167,14 +166,10 @@ export default function Clients() {
           <option value="">All KYC Types</option>
           {filterOptions.kycTypes.map((v) => <option key={v} value={v}>{v}</option>)}
         </select>
-        {/* Dashboard-only status: esigned = Verify, everything else = In Progress */}
-        <select value={filters.dashboardStatus} onChange={handleFilterChange('dashboardStatus')} title="Verify = eSigned; In Progress = every other stage">
+        {/* Dashboard-only status: esigned = Verify, everything else = In Progress; Completed = Re-KYC match */}
+        <select value={filters.dashboardStatus} onChange={handleFilterChange('dashboardStatus')} title="Verify = eSigned; In Progress = every other stage; Completed = Re-KYC client ID + PAN match">
           <option value="">All Clients</option>
           {DASHBOARD_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-        <select value={filters.status} onChange={handleFilterChange('status')}>
-          <option value="">All KYC Statuses</option>
-          {filterOptions.statuses.map((v) => <option key={v} value={v}>{formatLabel(v)}</option>)}
         </select>
         <select value={filters.stage} onChange={handleFilterChange('stage')}>
           <option value="">All Stages</option>
@@ -237,9 +232,8 @@ export default function Clients() {
                   <td>{orNa(r.email)}</td>
                   <td><CopyableCell value={r.mobile_number} /></td>
                   <td>{formatLabel(r.current_stage)}</td>
-                  <td>
-                    <span className={`pill ${dashboardStatusOf(r) === 'Verify' ? 'pill-completed' : 'pill-progress'}`}>{dashboardStatusOf(r)}</span>
-                  </td>
+                  {/* Re-KYC match only: Completed, otherwise blank */}
+                  <td>{r.rekyc_status === 'Completed' && <span className="pill pill-completed">Completed</span>}</td>
                   <td><StatusPill value={r.kyc_status} /></td>
                   <td><StatusPill value={r.cvlkra_push_status} /></td>
                   <td><StatusPill value={r.cdsl_push_status} /></td>
