@@ -7,12 +7,49 @@ import StatusPill from '../components/StatusPill';
 import ActionsMenu from '../components/ActionsMenu';
 import ClientEditModal from '../components/ClientEditModal';
 import ReasonModal from '../components/ReasonModal';
+import ColumnPicker from '../components/ColumnPicker';
 import { useAuth } from '../context/AuthContext';
 import useFeatures from '../hooks/useFeatures';
 import { formatDate, formatLabel, orNa } from '../utils/format';
 
 const PAGE_SIZE = 25;
 const CLIENT_ACTION_ROLES = ['Super Admin', 'Admin'];
+
+// Columns of the clients table, in display order (cells are rendered in the component).
+// Shown / hidden columns are chosen with the Columns dropdown and remembered per browser.
+const CLIENT_COLUMNS = [
+  { key: 'created_at', label: 'Application Date' },
+  { key: 'application_id', label: 'Unique ID' },
+  { key: 'kyc_type', label: 'KYC Type' },
+  { key: 'client_code', label: 'Client Code' },
+  { key: 'client_name', label: 'Client Name' },
+  { key: 'pan_number', label: 'PAN Number' },
+  { key: 'email', label: 'Email ID' },
+  { key: 'mobile_number', label: 'Mobile Number' },
+  { key: 'current_stage', label: 'Current Stage' },
+  { key: 'rekyc_status', label: 'Status' },
+  { key: 'cvlkra_push_status', label: 'CVL KRA' },
+  { key: 'cdsl_push_status', label: 'CDSL' },
+  { key: 'nse_push_status', label: 'NSE' },
+  { key: 'bse_status', label: 'BSE' },
+  { key: 'techexcel_push_status', label: 'TECHEXCEL' },
+  { key: 'api_status', label: 'API Status' },
+  { key: 'esign_pdf', label: 'Esign PDF' },
+  { key: 'actions', label: 'Action/Edit', locked: true },
+];
+const DEFAULT_COLUMNS = CLIENT_COLUMNS.map((c) => c.key);
+const COLUMNS_STORAGE_KEY = 'kyc_clients_columns';
+
+function loadColumns() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(COLUMNS_STORAGE_KEY) || 'null');
+    if (Array.isArray(saved)) {
+      const known = new Set(DEFAULT_COLUMNS);
+      return new Set([...saved.filter((k) => known.has(k)), ...CLIENT_COLUMNS.filter((c) => c.locked).map((c) => c.key)]);
+    }
+  } catch { /* unreadable or blocked storage: use the defaults */ }
+  return new Set(DEFAULT_COLUMNS);
+}
 
 // Dashboard-only status (same rule as the backend): esigned -> Verify, else In Progress.
 // Used by the filter dropdown; the Status column shows the Re-KYC match (rekyc_status).
@@ -48,6 +85,11 @@ export default function Clients() {
   const [error, setError] = useState('');
   const [modalState, setModalState] = useState(null); // { record, readOnly }
   const [reasonAction, setReasonAction] = useState(null); // { type: 'delete' | 'skip', record }
+  const [visibleColumns, setVisibleColumns] = useState(loadColumns);
+  const changeColumns = (next) => {
+    setVisibleColumns(next);
+    try { localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify([...next])); } catch { /* storage blocked: keep for this visit only */ }
+  };
   const { user } = useAuth();
   const features = useFeatures();
   const navigate = useNavigate();
@@ -145,6 +187,48 @@ export default function Clients() {
     }
   };
 
+  const shownColumns = CLIENT_COLUMNS.filter((c) => visibleColumns.has(c.key));
+
+  function renderCell(key, r) {
+    switch (key) {
+      case 'created_at': return formatDate(r.created_at);
+      case 'application_id': return orNa(r.application_id);
+      case 'kyc_type': return orNa(r.kyc_type);
+      case 'client_code': return <CopyableCell value={r.client_code} />;
+      case 'client_name': return orNa(r.client_name);
+      case 'pan_number': return <CopyableCell value={r.pan_number} />;
+      case 'email': return orNa(r.email);
+      case 'mobile_number': return <CopyableCell value={r.mobile_number} />;
+      case 'current_stage': return formatLabel(r.current_stage);
+      // Re-KYC match only: Completed, otherwise blank
+      case 'rekyc_status': return r.rekyc_status === 'Completed' && <span className="pill pill-completed">Completed</span>;
+      case 'cvlkra_push_status':
+      case 'cdsl_push_status':
+      case 'nse_push_status':
+      case 'bse_status':
+      case 'techexcel_push_status':
+      case 'api_status':
+        return <StatusPill value={r[key]} />;
+      case 'esign_pdf':
+        return r.has_esign_pdf
+          ? <button className="link-btn" onClick={() => handleViewPdf(r)}>Check PDF</button>
+          : <span className="na">N/A</span>;
+      case 'actions':
+        return (
+          <ActionsMenu
+            onView={() => setModalState({ record: r, readOnly: true })}
+            onEdit={() => setModalState({ record: r, readOnly: false })}
+            onSkipPayment={canAct ? () => setReasonAction({ type: 'skip', record: r }) : undefined}
+            skipPaymentDisabled={r.current_stage === 'payment'
+              ? null
+              : `Only at Payment stage (now: ${formatLabel(r.current_stage) || 'N/A'})`}
+            onDelete={canAct ? () => setReasonAction({ type: 'delete', record: r }) : undefined}
+          />
+        );
+      default: return null;
+    }
+  }
+
   const rangeLabel = useMemo(() => {
     if (total === 0) return '0 results';
     const start = (page - 1) * PAGE_SIZE + 1;
@@ -177,6 +261,7 @@ export default function Clients() {
         </select>
         <input type="date" value={filters.dateFrom} onChange={handleFilterChange('dateFrom')} />
         <input type="date" value={filters.dateTo} onChange={handleFilterChange('dateTo')} />
+        <ColumnPicker columns={CLIENT_COLUMNS} visible={visibleColumns} onChange={changeColumns} defaults={DEFAULT_COLUMNS} />
         <button className="btn btn-primary" onClick={handleExport}>Export &#8595;</button>
       </div>
 
@@ -191,24 +276,7 @@ export default function Clients() {
           <table className="data-table data-table--center">
             <thead>
               <tr>
-                <th>Application Date</th>
-                <th>Unique ID</th>
-                <th>KYC Type</th>
-                <th>Client Code</th>
-                <th>Client Name</th>
-                <th>PAN Number</th>
-                <th>Email ID</th>
-                <th>Mobile Number</th>
-                <th>Current Stage</th>
-                <th>Status</th>
-                <th>CVL KRA</th>
-                <th>CDSL</th>
-                <th>NSE</th>
-                <th>BSE</th>
-                <th>TECHEXCEL</th>
-                <th>API Status</th>
-                <th>Esign PDF</th>
-                <th>Action/Edit</th>
+                {shownColumns.map((c) => <th key={c.key}>{c.label}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -222,41 +290,7 @@ export default function Clients() {
                     navigate(`/clients/${r.id}`);
                   }}
                 >
-                  <td>{formatDate(r.created_at)}</td>
-                  <td>{orNa(r.application_id)}</td>
-                  <td>{orNa(r.kyc_type)}</td>
-                  <td><CopyableCell value={r.client_code} /></td>
-                  <td>{orNa(r.client_name)}</td>
-                  <td><CopyableCell value={r.pan_number} /></td>
-                  <td>{orNa(r.email)}</td>
-                  <td><CopyableCell value={r.mobile_number} /></td>
-                  <td>{formatLabel(r.current_stage)}</td>
-                  {/* Re-KYC match only: Completed, otherwise blank */}
-                  <td>{r.rekyc_status === 'Completed' && <span className="pill pill-completed">Completed</span>}</td>
-                  <td><StatusPill value={r.cvlkra_push_status} /></td>
-                  <td><StatusPill value={r.cdsl_push_status} /></td>
-                  <td><StatusPill value={r.nse_push_status} /></td>
-                  <td><StatusPill value={r.bse_status} /></td>
-                  <td><StatusPill value={r.techexcel_push_status} /></td>
-                  <td><StatusPill value={r.api_status} /></td>
-                  <td>
-                    {r.has_esign_pdf ? (
-                      <button className="link-btn" onClick={() => handleViewPdf(r)}>Check PDF</button>
-                    ) : (
-                      <span className="na">N/A</span>
-                    )}
-                  </td>
-                  <td>
-                    <ActionsMenu
-                      onView={() => setModalState({ record: r, readOnly: true })}
-                      onEdit={() => setModalState({ record: r, readOnly: false })}
-                      onSkipPayment={canAct ? () => setReasonAction({ type: 'skip', record: r }) : undefined}
-                      skipPaymentDisabled={r.current_stage === 'payment'
-                        ? null
-                        : `Only at Payment stage (now: ${formatLabel(r.current_stage) || 'N/A'})`}
-                      onDelete={canAct ? () => setReasonAction({ type: 'delete', record: r }) : undefined}
-                    />
-                  </td>
+                  {shownColumns.map((c) => <td key={c.key}>{renderCell(c.key, r)}</td>)}
                 </tr>
               ))}
             </tbody>
