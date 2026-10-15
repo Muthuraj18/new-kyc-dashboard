@@ -11,7 +11,7 @@ const fmtDate = (v) => (v ? new Date(v).toLocaleString() : 'N/A');
 const asText = (v) => (v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
 // Row editor: every column of one row. Edits apply to THIS table only.
-function RowEditor({ tableKey, uniqueId, onClose, onSaved }) {
+function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
   const [row, setRow] = useState(null);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('');
@@ -20,6 +20,9 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved }) {
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [pushing, setPushing] = useState(false);
+  const [pushResult, setPushResult] = useState(null); // { state, ok, summary, response, function } or { error }
+  const [showPushResponse, setShowPushResponse] = useState(false);
 
   useEffect(() => {
     api.get(`/tables/${tableKey}/${encodeURIComponent(uniqueId)}`)
@@ -57,7 +60,27 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved }) {
     }
   };
 
+  // Runs this module's push Lambda for this one client (backend invokes it), then reloads
+  // the row so the new push status / response show.
+  const push = async () => {
+    if (!window.confirm(`Push ${row?.label || 'this record'} for unique ID ${uniqueId} now? This sends the record to the agency.`)) return;
+    setPushing(true);
+    setPushResult(null);
+    setShowPushResponse(false);
+    try {
+      const { data } = await api.post(`/tables/${tableKey}/${encodeURIComponent(uniqueId)}/push`, {}, { timeout: 60000 });
+      setRow(data.data.row);
+      setPushResult(data.data);
+      onPushed(data.data);
+    } catch (err) {
+      setPushResult({ error: err.response?.data?.error || 'Failed to push the record' });
+    } finally {
+      setPushing(false);
+    }
+  };
+
   const tryClose = () => {
+    if (pushing) return;
     if (pendingCount && !window.confirm('Discard unsaved changes?')) return;
     onClose();
   };
@@ -125,6 +148,22 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved }) {
         )}
 
         {saveError && <div className="form-error" style={{ marginTop: 12 }}>{saveError}</div>}
+        {pushResult && (pushResult.error ? (
+          <div className="form-error" style={{ marginTop: 12 }}>{pushResult.error}</div>
+        ) : (
+          <div className={pushResult.ok === false ? 'form-error' : 'table-notice'} style={{ marginTop: 12, whiteSpace: 'pre-line' }}>
+            <b>{pushResult.state === 'running' ? 'Push started' : pushResult.ok ? 'Push done' : 'Push failed'}</b> ({pushResult.function}): {pushResult.summary}
+            {pushResult.response && (
+              <>
+                {' '}
+                <button className="link-btn" onClick={() => setShowPushResponse((s) => !s)}>{showPushResponse ? 'Hide response' : 'View response'}</button>
+                {showPushResponse && (
+                  <pre style={{ margin: '6px 0 0', maxHeight: 240, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12 }}>{pushResult.response}</pre>
+                )}
+              </>
+            )}
+          </div>
+        ))}
         <div className="table-row-footer">
           <input
             type="text"
@@ -135,9 +174,17 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved }) {
             onChange={(e) => setReason(e.target.value)}
           />
           <div className="modal-actions">
-            <button className="btn btn-outline" onClick={tryClose} disabled={saving}>Close</button>
-            <button className="btn btn-outline" onClick={() => setPending({})} disabled={saving || !pendingCount}>Discard</button>
-            <button className="btn btn-primary" onClick={save} disabled={saving || !pendingCount}>
+            <button className="btn btn-outline" onClick={tryClose} disabled={saving || pushing}>Close</button>
+            <button className="btn btn-outline" onClick={() => setPending({})} disabled={saving || pushing || !pendingCount}>Discard</button>
+            <button
+              className="btn btn-outline"
+              onClick={push}
+              disabled={!row || saving || pushing || pendingCount > 0}
+              title={pendingCount ? 'Save or discard your changes first' : `Run the ${row?.label || ''} push for this client`}
+            >
+              {pushing ? 'Pushing…' : `Push to ${row?.label || 'agency'}`}
+            </button>
+            <button className="btn btn-primary" onClick={save} disabled={saving || pushing || !pendingCount}>
               {saving ? 'Saving…' : `Save ${pendingCount || ''} change${pendingCount === 1 ? '' : 's'}`}
             </button>
           </div>
@@ -257,6 +304,7 @@ export default function IntegrationTable() {
             setTimeout(() => setNotice(''), 6000);
             setReload((n) => n + 1);
           }}
+          onPushed={() => setReload((n) => n + 1)}
         />
       )}
     </Layout>
