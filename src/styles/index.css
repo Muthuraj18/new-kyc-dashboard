@@ -2160,3 +2160,39 @@ table.data-table--compact {
   white-space: nowrap;
   vertical-align: middle;
 }
+
+/* eSign link shown after Save & regenerate (Client Details) */
+.regen-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--success);
+  border-radius: 12px;
+  background: var(--card-bg);
+  color: var(--text);
+}
+.regen-link-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.regen-link-text span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.regen-link-url {
+  font-size: 13px;
+  word-break: break-all;
+  color: var(--accent);
+}
+.regen-link-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
