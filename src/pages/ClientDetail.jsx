@@ -18,7 +18,7 @@ import {
   PencilIcon,
   RotateLeftIcon as UndoIcon,
 } from '../components/icons';
-import { orNa } from '../utils/format';
+import { orNa, copyToClipboard } from '../utils/format';
 
 // Left column. Every value comes from kyc_master_details via GET /clients/:id/details.
 // `timestamp` is the column (or first non-empty of several) shown in the "Stage Timestamp" box.
@@ -216,6 +216,8 @@ export default function ClientDetail() {
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [notice, setNotice] = useState(null); // { text, error }
+  // eSign link from the last Save & regenerate (also emailed to the client): { url, emailedTo, emailError, at }
+  const [regenLink, setRegenLink] = useState(null);
   const [busy, setBusy] = useState(''); // '' | 'save' | 'generate' - blocks double clicks
   const [confirmGenerate, setConfirmGenerate] = useState(false);
   const [xmlBusy, setXmlBusy] = useState(false);
@@ -404,9 +406,13 @@ export default function ClientDetail() {
       }
       setConfirmGenerate(false);
       if (result.client) setClient(result.client);
-      // Show the regenerated PDF from S3 next time it is opened (or now, if it is open).
-      setDocs((d) => ({ ...d, unsignedpdf: undefined, esignedpdf: undefined }));
-      if (activeDoc === 'unsignedpdf' || activeDoc === 'esignedpdf') loadDoc(activeDoc);
+      // Show the regenerated PDF and the new eSign link (esign_redirect_url) from the
+      // backend next time they are opened (or now, if one is open).
+      setDocs((d) => ({ ...d, unsignedpdf: undefined, esignedpdf: undefined, esignredirect: undefined }));
+      if (['unsignedpdf', 'esignedpdf', 'esignredirect'].includes(activeDoc)) loadDoc(activeDoc);
+      if (result.signingUrl) {
+        setRegenLink({ url: result.signingUrl, emailedTo: result.emailedTo, emailError: result.emailError, at: new Date() });
+      }
       showNotice(
         result.emailError
           || `PDF regenerated. Stage set to "${result.currentStage}". eSign link${result.pdfAttached ? ' and unsigned PDF' : ''} emailed to ${result.emailedTo}.`,
@@ -512,7 +518,17 @@ export default function ClientDetail() {
         <div className="preview-empty preview-link">
           <strong>{doc.label}</strong>
           <a href={file.url} target="_blank" rel="noreferrer">{file.url}</a>
-          <a className="btn btn-blue" href={file.url} target="_blank" rel="noreferrer">Open link</a>
+          <div className="regen-link-actions">
+            <button
+              className="btn btn-outline"
+              onClick={async () => {
+                try { await copyToClipboard(file.url); showNotice('Link copied.'); } catch { showNotice('Could not copy the link', { error: true }); }
+              }}
+            >
+              Copy link
+            </button>
+            <a className="btn btn-blue" href={file.url} target="_blank" rel="noreferrer">Open link</a>
+          </div>
         </div>
       ) : (
         <div className="preview-empty"><strong>{doc.label}</strong><span>No data available</span></div>
@@ -564,6 +580,33 @@ export default function ClientDetail() {
               <button className="btn btn-success" onClick={() => showNotice(NOT_CONNECTED)}>Update Name</button>
             </div>
           </div>
+
+          {regenLink && (
+            <div className="regen-link" role="status">
+              <div className="regen-link-text">
+                <strong>eSign link regenerated</strong>
+                <span>
+                  {regenLink.emailError
+                    ? `The email to ${regenLink.emailedTo} failed - share this link with the client.`
+                    : `Emailed to ${regenLink.emailedTo} at ${regenLink.at.toLocaleTimeString()}. Also under Documents › Esign Redirect Url.`}
+                </span>
+                <a className="mono regen-link-url" href={regenLink.url} target="_blank" rel="noreferrer">{regenLink.url}</a>
+              </div>
+              <div className="regen-link-actions">
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={async () => {
+                    try { await copyToClipboard(regenLink.url); showNotice('eSign link copied.'); } catch { showNotice('Could not copy the link', { error: true }); }
+                  }}
+                >
+                  Copy link
+                </button>
+                <button className="btn btn-outline btn-sm" onClick={() => setActiveDoc('unsignedpdf')}>View unsigned PDF</button>
+                <a className="btn btn-blue btn-sm" href={regenLink.url} target="_blank" rel="noreferrer">Open</a>
+                <button className="btn btn-outline btn-sm" aria-label="Dismiss" onClick={() => setRegenLink(null)}>×</button>
+              </div>
+            </div>
+          )}
 
           <div className="detail-grid">
             <section className="detail-panel">
