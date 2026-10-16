@@ -601,6 +601,7 @@ export default function ClientDetail() {
                 >
                   Copy link
                 </button>
+                <button className="btn btn-outline btn-sm" onClick={() => setActiveDoc('unsignedpdf')}>View unsigned PDF</button>
                 <a className="btn btn-blue btn-sm" href={regenLink.url} target="_blank" rel="noreferrer">Open</a>
                 <button className="btn btn-outline btn-sm" aria-label="Dismiss" onClick={() => setRegenLink(null)}>×</button>
               </div>
