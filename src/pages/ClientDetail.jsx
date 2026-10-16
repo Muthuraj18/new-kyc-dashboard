@@ -518,7 +518,17 @@ export default function ClientDetail() {
         <div className="preview-empty preview-link">
           <strong>{doc.label}</strong>
           <a href={file.url} target="_blank" rel="noreferrer">{file.url}</a>
-          <a className="btn btn-blue" href={file.url} target="_blank" rel="noreferrer">Open link</a>
+          <div className="regen-link-actions">
+            <button
+              className="btn btn-outline"
+              onClick={async () => {
+                try { await copyToClipboard(file.url); showNotice('Link copied.'); } catch { showNotice('Could not copy the link', { error: true }); }
+              }}
+            >
+              Copy link
+            </button>
+            <a className="btn btn-blue" href={file.url} target="_blank" rel="noreferrer">Open link</a>
+          </div>
         </div>
       ) : (
         <div className="preview-empty"><strong>{doc.label}</strong><span>No data available</span></div>
