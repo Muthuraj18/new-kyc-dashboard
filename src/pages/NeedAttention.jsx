@@ -7,6 +7,30 @@ import { useAuth } from '../context/AuthContext';
 
 const VIEW_ROLES = ['Super Admin', 'Admin'];
 const fmtDate = (v) => (v ? new Date(v).toLocaleString() : 'N/A');
+
+// CSV of the rows on screen (module / search / date filters applied). UTF-8 BOM so Excel
+// opens names and reasons correctly; values that could start a formula are prefixed.
+const csvCell = (v) => {
+  let s = v === null || v === undefined ? '' : String(v);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+function exportCsv(rows) {
+  const header = ['Unique ID', 'Client Code', 'PAN', 'Client Name', 'Rejected Module', 'Current Status', 'Error / Rejection Reason', 'Last Updated', 'Agency Response'];
+  const lines = rows.map((r) => [
+    r.unique_id, r.client_code, r.pan, r.client_name, r.module_label, r.status, r.reason,
+    r.updated_at ? new Date(r.updated_at).toLocaleString() : '', r.response,
+  ].map(csvCell).join(','));
+  const blob = new Blob([String.fromCharCode(0xfeff) + [header.join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `need-attention-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 // Local calendar day (YYYY-MM-DD) of a timestamp, matching the date shown in Last Updated.
 const localDay = (v) => {
   const d = new Date(v);
@@ -80,6 +104,9 @@ export default function NeedAttention() {
         <label className="date-filter">To <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)} /></label>
         {(dateFrom || dateTo) && <button className="btn btn-outline" onClick={() => { setDateFrom(''); setDateTo(''); }}>Clear dates</button>}
         <button className="btn btn-outline" onClick={() => setReload((n) => n + 1)}>Refresh</button>
+        <button className="btn btn-primary" onClick={() => exportCsv(rows)} disabled={!rows.length} title="Download the rows shown as CSV">
+          Export &#8595;
+        </button>
       </div>
 
       {data && (
