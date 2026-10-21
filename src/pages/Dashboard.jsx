@@ -69,19 +69,23 @@ function LowStockAlert({ inventory }) {
 }
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ total: null, completed: null, inProgress: null });
+  const [stats, setStats] = useState({ total: null, completed: null, verify: null, inProgress: null });
   const [inventory, setInventory] = useState({ stampPaper: null, boid: null });
 
+  // Same calculated status as the Clients list filter (Completed / Verify / In Progress
+  // don't overlap), not the stored kyc_status flag.
   useEffect(() => {
     Promise.all([
       api.get('/clients', { params: { pageSize: 1 } }),
-      api.get('/clients', { params: { pageSize: 1, status: 'completed' } }),
-      api.get('/clients', { params: { pageSize: 1, status: 'in_progress' } }),
+      api.get('/clients', { params: { pageSize: 1, dashboardStatus: 'completed' } }),
+      api.get('/clients', { params: { pageSize: 1, dashboardStatus: 'verify' } }),
+      api.get('/clients', { params: { pageSize: 1, dashboardStatus: 'in_progress' } }),
     ])
-      .then(([all, completed, inProgress]) => {
+      .then(([all, completed, verify, inProgress]) => {
         setStats({
           total: all.data.total,
           completed: completed.data.total,
+          verify: verify.data.total,
           inProgress: inProgress.data.total,
         });
       })
@@ -98,6 +102,7 @@ export default function Dashboard() {
   const cards = [
     { label: 'Total Applications', value: stats.total },
     { label: 'Completed', value: stats.completed },
+    { label: 'Verify', value: stats.verify },
     { label: 'In Progress', value: stats.inProgress },
   ];
 
