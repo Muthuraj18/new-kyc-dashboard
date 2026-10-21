@@ -133,8 +133,10 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
                         <option value="true">Yes</option>
                         <option value="false">No</option>
                       </select>
-                    ) : value.length > 80 ? (
-                      <textarea id={`f-${c.name}`} className="field-input" rows={3} value={value} maxLength={c.max || undefined}
+                    ) : value.length > 28 && c.type !== 'date' ? (
+                      // Long text (e.g. cust_addr_1): wrap onto as many lines as needed so the whole value shows.
+                      <textarea id={`f-${c.name}`} className="field-input" rows={Math.min(Math.ceil(value.length / 28), 6)} value={value}
+                        maxLength={c.max || undefined} style={{ resize: 'vertical' }}
                         disabled={saving} onChange={(e) => setValue(c.name, e.target.value)} />
                     ) : (
                       <input id={`f-${c.name}`} className="field-input" value={value} maxLength={c.max || undefined}
