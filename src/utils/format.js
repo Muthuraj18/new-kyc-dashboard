@@ -29,8 +29,17 @@ export function orNa(value) {
 }
 
 // 'bank-details' -> 'Bank Details', 'in_progress' -> 'In Progress'
+// Stage values shown under a friendlier name. "awaiting-esign" (KYC flow) and
+// "yet to esign" (PRE KYC flow) are the same step: waiting for the client's eSign.
+const LABELS = {
+  'awaiting-esign': 'Yet to eSign',
+  'yet to esign': 'Yet to eSign',
+};
+
 export function formatLabel(value) {
   if (!value) return 'N/A';
+  const known = LABELS[String(value).trim().toLowerCase()];
+  if (known) return known;
   return String(value)
     .split(/[-_]/)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
