@@ -62,14 +62,15 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
 
   // Runs this module's push Lambda for this one client (backend invokes it), then reloads
   // the row so the new push status / response show.
-  // mode 'verify' (CDSL only): fetch CDSL's result for an upload it already acknowledged.
+  // Follow-up modes (never submit the record again): 'verify' = CDSL result of an acknowledged
+  // upload; 'status' = CVLKRA final KRA status; 'documents' = CVLKRA document re-upload.
   const push = async (mode = 'push') => {
     if (mode === 'push' && !window.confirm(`Push ${row?.label || 'this record'} for unique ID ${uniqueId} now? This sends the record to the agency.`)) return;
     setPushing(true);
     setPushResult(null);
     setShowPushResponse(false);
     try {
-      const { data } = await api.post(`/tables/${tableKey}/${encodeURIComponent(uniqueId)}/push`, mode === 'verify' ? { mode } : {}, { timeout: 60000 });
+      const { data } = await api.post(`/tables/${tableKey}/${encodeURIComponent(uniqueId)}/push`, mode === 'push' ? {} : { mode }, { timeout: 60000 });
       setRow(data.data.row);
       setPushResult(data.data);
       onPushed(data.data);
@@ -157,7 +158,7 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
           <div className={pushResult.ok === false ? 'form-error' : 'table-notice'} style={{ marginTop: 12, whiteSpace: 'pre-line' }}>
             <b>
               {pushResult.state === 'running' ? 'Push started'
-                : pushResult.state === 'pending' ? 'Uploaded, waiting for CDSL'
+                : pushResult.state === 'pending' ? (tableKey === 'cdsl' ? 'Uploaded, waiting for CDSL' : 'Submitted, waiting for CVL')
                   : pushResult.ok === null ? 'Note'
                     : pushResult.ok ? 'Done' : 'Failed'}
             </b> ({pushResult.function}): {pushResult.summary}
@@ -184,6 +185,28 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
           <div className="modal-actions">
             <button className="btn btn-outline" onClick={tryClose} disabled={saving || pushing}>Close</button>
             <button className="btn btn-outline" onClick={() => setPending({})} disabled={saving || pushing || !pendingCount}>Discard</button>
+            {tableKey === 'cvlkra' && (
+              <>
+                {String(original.sync_status || '').toLowerCase() === 'document_upload_failed' && (
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => push('documents')}
+                    disabled={!row || saving || pushing}
+                    title="Re-upload the PDF / Aadhaar XML to CVL (does not submit the KYC record again)"
+                  >
+                    Retry documents
+                  </button>
+                )}
+                <button
+                  className="btn btn-outline"
+                  onClick={() => push('status')}
+                  disabled={!row || saving || pushing}
+                  title="Fetch CVL's final KRA status (Passed / On Hold / Rejected) - read only"
+                >
+                  Check CVLKRA status
+                </button>
+              </>
+            )}
             {tableKey === 'cdsl' && (
               <button
                 className="btn btn-outline"
