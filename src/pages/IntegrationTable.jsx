@@ -62,13 +62,14 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
 
   // Runs this module's push Lambda for this one client (backend invokes it), then reloads
   // the row so the new push status / response show.
-  const push = async () => {
-    if (!window.confirm(`Push ${row?.label || 'this record'} for unique ID ${uniqueId} now? This sends the record to the agency.`)) return;
+  // mode 'verify' (CDSL only): fetch CDSL's result for an upload it already acknowledged.
+  const push = async (mode = 'push') => {
+    if (mode === 'push' && !window.confirm(`Push ${row?.label || 'this record'} for unique ID ${uniqueId} now? This sends the record to the agency.`)) return;
     setPushing(true);
     setPushResult(null);
     setShowPushResponse(false);
     try {
-      const { data } = await api.post(`/tables/${tableKey}/${encodeURIComponent(uniqueId)}/push`, {}, { timeout: 60000 });
+      const { data } = await api.post(`/tables/${tableKey}/${encodeURIComponent(uniqueId)}/push`, mode === 'verify' ? { mode } : {}, { timeout: 60000 });
       setRow(data.data.row);
       setPushResult(data.data);
       onPushed(data.data);
@@ -152,7 +153,12 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
           <div className="form-error" style={{ marginTop: 12 }}>{pushResult.error}</div>
         ) : (
           <div className={pushResult.ok === false ? 'form-error' : 'table-notice'} style={{ marginTop: 12, whiteSpace: 'pre-line' }}>
-            <b>{pushResult.state === 'running' ? 'Push started' : pushResult.ok ? 'Push done' : 'Push failed'}</b> ({pushResult.function}): {pushResult.summary}
+            <b>
+              {pushResult.state === 'running' ? 'Push started'
+                : pushResult.state === 'pending' ? 'Uploaded, waiting for CDSL'
+                  : pushResult.ok === null ? 'Note'
+                    : pushResult.ok ? 'Done' : 'Failed'}
+            </b> ({pushResult.function}): {pushResult.summary}
             {pushResult.response && (
               <>
                 {' '}
@@ -176,9 +182,19 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
           <div className="modal-actions">
             <button className="btn btn-outline" onClick={tryClose} disabled={saving || pushing}>Close</button>
             <button className="btn btn-outline" onClick={() => setPending({})} disabled={saving || pushing || !pendingCount}>Discard</button>
+            {tableKey === 'cdsl' && (
+              <button
+                className="btn btn-outline"
+                onClick={() => push('verify')}
+                disabled={!row || saving || pushing}
+                title="Fetch CDSL's result for the last acknowledged upload (does not upload again)"
+              >
+                Check CDSL result
+              </button>
+            )}
             <button
               className="btn btn-outline"
-              onClick={push}
+              onClick={() => push()}
               disabled={!row || saving || pushing || pendingCount > 0}
               title={pendingCount ? 'Save or discard your changes first' : `Run the ${row?.label || ''} push for this client`}
             >
