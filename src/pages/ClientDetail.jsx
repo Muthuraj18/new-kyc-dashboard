@@ -516,7 +516,13 @@ export default function ClientDetail() {
     if (file.type === 'link') {
       return file.url ? (
         <div className="preview-empty preview-link">
-          <strong>{doc.label}</strong>
+          <strong>{activeDoc === 'esignredirect' && /setu\.co/i.test(file.url) ? 'Setu eSign link (client signs here)' : doc.label}</strong>
+          {activeDoc === 'esignredirect' && !/setu\.co/i.test(file.url) && (
+            <span className="xml-note">
+              This is the page the client returns to after signing, not the signing link.
+              Use Save &amp; Generate PDF to create a new Setu eSign link, which then shows here.
+            </span>
+          )}
           <a href={file.url} target="_blank" rel="noreferrer">{file.url}</a>
           <div className="regen-link-actions">
             <button
