@@ -157,7 +157,11 @@ export default function NeedAttention() {
                       <td className="mono"><CopyableCell value={r.pan} /></td>
                       <td>{r.client_name || 'N/A'}</td>
                       <td><b>{r.module_label}</b></td>
-                      <td><span className="pill pill-no">{r.status}</span></td>
+                      <td>
+                        {r.awaiting_push
+                          ? <span className="pill pill-pending" title="Corrected and set to Pending - push it again">Pending · push again</span>
+                          : <span className="pill pill-no">{r.status}</span>}
+                      </td>
                       <td style={{ maxWidth: 360, whiteSpace: 'normal', textAlign: 'left' }}>
                         {r.reason || <span className="na">Not recorded</span>}
                         {r.response && (
