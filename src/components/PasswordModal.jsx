@@ -4,10 +4,9 @@ import PasswordInput from './PasswordInput';
 
 const MIN = 8;
 
-// mode 'self': the signed-in user changes their own password (current password required).
+// mode 'self': the signed-in user sets a new password for their own login.
 // mode 'reset': a Super Admin sets a new password for `target` ({ id, username, role }).
 export default function PasswordModal({ mode, target, onClose, onDone }) {
-  const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
@@ -20,7 +19,7 @@ export default function PasswordModal({ mode, target, onClose, onDone }) {
     if (next !== confirm) { setError('The two new passwords do not match.'); return; }
     setSaving(true);
     try {
-      if (mode === 'self') await api.post('/users/me/password', { currentPassword: current, newPassword: next });
+      if (mode === 'self') await api.post('/users/me/password', { newPassword: next });
       else await api.post(`/users/${target.id}/password`, { password: next });
       onDone?.();
       onClose();
@@ -40,15 +39,9 @@ export default function PasswordModal({ mode, target, onClose, onDone }) {
             Sets a new password for this {target.role}. Share it with them securely; they can change it from the top bar after signing in.
           </p>
         )}
-        {mode === 'self' && (
-          <div className="um-field" style={{ marginBottom: 10 }}>
-            <label htmlFor="pw-current">Current password</label>
-            <PasswordInput id="pw-current" value={current} onChange={setCurrent} autoComplete="current-password" minLength={1} disabled={saving} autoFocus />
-          </div>
-        )}
         <div className="um-field" style={{ marginBottom: 10 }}>
           <label htmlFor="pw-new">New password (at least {MIN} characters)</label>
-          <PasswordInput id="pw-new" value={next} onChange={setNext} disabled={saving} autoFocus={mode === 'reset'} />
+          <PasswordInput id="pw-new" value={next} onChange={setNext} disabled={saving} autoFocus />
         </div>
         <div className="um-field" style={{ marginBottom: 10 }}>
           <label htmlFor="pw-confirm">Confirm new password</label>
