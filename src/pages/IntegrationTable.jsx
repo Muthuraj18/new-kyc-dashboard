@@ -81,6 +81,26 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
     }
   };
 
+  // Back to the push queue without editing a field (e.g. after fixing the data in Client
+  // Details). Uses the Reason box, which is required here.
+  const resetToPending = async () => {
+    if (!reason.trim()) { setSaveError('Enter a reason first (saved in the audit log).'); return; }
+    if (!window.confirm(`Set the ${row?.label || ''} push status for unique ID ${uniqueId} back to Pending?`)) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      const { data } = await api.post(`/tables/${tableKey}/${encodeURIComponent(uniqueId)}/reset-status`, { reason: reason.trim() });
+      setRow(data.data.row);
+      setReason('');
+      setPushResult(null);
+      onSaved(data.data);
+    } catch (err) {
+      setSaveError(err.response?.data?.error || 'Failed to set the row back to Pending');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const tryClose = () => {
     if (pushing) return;
     if (pendingCount && !window.confirm('Discard unsaved changes?')) return;
@@ -177,14 +197,22 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
           <input
             type="text"
             className="field-input"
-            placeholder="Reason (optional, saved in the audit log)"
+            placeholder="Reason (saved in the audit log; required for Set to Pending)"
             value={reason}
-            disabled={saving || !pendingCount}
+            disabled={saving}
             onChange={(e) => setReason(e.target.value)}
           />
           <div className="modal-actions">
             <button className="btn btn-outline" onClick={tryClose} disabled={saving || pushing}>Close</button>
             <button className="btn btn-outline" onClick={() => setPending({})} disabled={saving || pushing || !pendingCount}>Discard</button>
+            <button
+              className="btn btn-outline"
+              onClick={resetToPending}
+              disabled={!row || saving || pushing || pendingCount > 0}
+              title={pendingCount ? 'Save changes already sets the status to Pending' : 'Set the push status back to Pending without editing a field (reason required)'}
+            >
+              Set to Pending
+            </button>
             {tableKey === 'cvlkra' && (
               <>
                 {String(original.sync_status || '').toLowerCase() === 'document_upload_failed' && (
@@ -341,7 +369,9 @@ export default function IntegrationTable() {
           onClose={() => setOpenId(null)}
           onSaved={(res) => {
             const status = res.status?.reset ? ` ${res.status.field} reset to ${res.status.new} so it is pushed again.` : '';
-            setNotice(`${res.updated.length} field${res.updated.length === 1 ? '' : 's'} saved in ${res.table} only (unique ID ${res.uniqueId}): ${res.updated.map((u) => u.field).join(', ')}.${status}`);
+            setNotice(res.updated.length
+              ? `${res.updated.length} field${res.updated.length === 1 ? '' : 's'} saved in ${res.table} only (unique ID ${res.uniqueId}): ${res.updated.map((u) => u.field).join(', ')}.${status}`
+              : `${res.table} unique ID ${res.uniqueId}: ${res.status.field} changed from ${res.status.old ?? '(empty)'} to ${res.status.new}. Push it again when ready.`);
             setTimeout(() => setNotice(''), 6000);
             setReload((n) => n + 1);
           }}
