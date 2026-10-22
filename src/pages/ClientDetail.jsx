@@ -19,7 +19,7 @@ import {
   PencilIcon,
   RotateLeftIcon as UndoIcon,
 } from '../components/icons';
-import { orNa, copyToClipboard } from '../utils/format';
+import { orNa, copyToClipboard, formatLabel } from '../utils/format';
 
 // Left column. Every value comes from kyc_master_details via GET /clients/:id/details.
 // `timestamp` is the column (or first non-empty of several) shown in the "Stage Timestamp" box.
@@ -247,11 +247,34 @@ export default function ClientDetail() {
     return () => window.removeEventListener('beforeunload', warn);
   }, [pendingCount]);
 
+  // Waiting for the client's eSign (after Save & regenerate): ask the onboarding API whether
+  // the client has signed, so the stage moves to esigned even if the client never returned to
+  // the app after signing. Runs once when the page opens, and from the Check eSign status button.
+  const [esignCheck, setEsignCheck] = useState(null); // { busy, status, message }
+  const waitingForEsign = ['yet to esign', 'awaiting-esign'].includes(String(client?.current_stage || '').trim().toLowerCase());
+  const checkEsign = async ({ quiet = false } = {}) => {
+    setEsignCheck({ busy: true });
+    try {
+      const { data } = await api.post(`/clients/${id}/esign-status`);
+      if (data.data.client) setClient(data.data.client);
+      setEsignCheck({ status: data.data.status, message: data.data.message });
+      if (!quiet || data.data.status === 'completed') {
+        showNotice(data.data.message, { error: !['completed', 'pending'].includes(data.data.status), ms: 6000 });
+      }
+    } catch (err) {
+      setEsignCheck({ status: 'error', message: err.response?.data?.error || 'Could not check the eSign status' });
+      if (!quiet) showNotice(err.response?.data?.error || 'Could not check the eSign status', { error: true });
+    }
+  };
+
   useEffect(() => {
     api.get(`/clients/${id}`)
       .then(({ data }) => {
         setClient(data.data);
         setName(data.data.client_name || '');
+        if (['yet to esign', 'awaiting-esign'].includes(String(data.data.current_stage || '').trim().toLowerCase())) {
+          checkEsign({ quiet: true });
+        }
       })
       .catch((err) => setError(err.response?.data?.error || 'Failed to load client'));
     api.get(`/clients/${id}/details`)
@@ -577,6 +600,17 @@ export default function ClientDetail() {
               <div><span>Client Code</span><strong>{client ? orNa(client.client_code) : '…'}</strong></div>
               <div><span>PAN</span><strong>{client ? orNa(client.pan_number) : '…'}</strong></div>
               <div><span>KYC Type</span><strong>{client ? orNa(client.kyc_type) : '…'}</strong></div>
+              {client && (
+                <div>
+                  <span>Current Stage</span>
+                  <strong>{formatLabel(client.current_stage)}</strong>
+                  {waitingForEsign && (
+                    <button className="link-btn" onClick={() => checkEsign()} disabled={esignCheck?.busy} title="Ask Setu whether the client has signed">
+                      {esignCheck?.busy ? 'Checking…' : 'Check eSign status'}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
             <div className="detail-name-row">
               <div className="form-field detail-name-field">
