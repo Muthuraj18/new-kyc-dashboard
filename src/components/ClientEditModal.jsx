@@ -37,10 +37,19 @@ export default function ClientEditModal({ record, readOnly, onClose, onSave }) {
             <label>KYC Status</label>
             <input disabled={readOnly} type="text" value={form.kyc_status} onChange={update('kyc_status')} />
           </div>
-          <div className="modal-field">
-            <label>Account Opening Status</label>
-            <input disabled={readOnly} type="text" value={form.account_opening_status} onChange={update('account_opening_status')} />
-          </div>
+          {readOnly ? (
+            // Calculated like the Status column: Yes only when the client is Completed (Re-KYC
+            // match or TechExcel Success); Verify / In Progress clients show No. Display only.
+            <div className="modal-field">
+              <label>Account Opening Status</label>
+              <input disabled type="text" value={record.rekyc_status === 'Completed' ? 'Yes' : 'No'} />
+            </div>
+          ) : (
+            <div className="modal-field">
+              <label>Account Opening Status (stored value)</label>
+              <input type="text" value={form.account_opening_status} onChange={update('account_opening_status')} />
+            </div>
+          )}
         </div>
 
         <div className="modal-grid" style={{ marginTop: -6 }}>
