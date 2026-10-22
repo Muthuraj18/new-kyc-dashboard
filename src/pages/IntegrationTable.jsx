@@ -4,14 +4,17 @@ import api from '../api';
 import Layout from '../components/Layout';
 import { INTEGRATION_TABLES } from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
+import { can } from '../utils/permissions';
 
 const PAGE_SIZE = 25;
-const EDIT_ROLES = ['Super Admin', 'Admin'];
 const fmtDate = (v) => (v ? new Date(v).toLocaleString() : 'N/A');
 const asText = (v) => (v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 
 // Row editor: every column of one row. Edits apply to THIS table only.
 function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
+  // Without Tables edit access (Agent), the row is read-only and the action buttons are hidden.
+  const { user } = useAuth();
+  const canEditRow = can(user, 'tables', 'edit');
   const [row, setRow] = useState(null);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('');
@@ -107,7 +110,7 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
     onClose();
   };
 
-  const columns = (row?.columns || []).filter((c) => (!onlyEditable || c.editable)
+  const columns = (row?.columns || []).map((c) => (canEditRow ? c : { ...c, editable: false })).filter((c) => (!onlyEditable || c.editable)
     && (!filter || c.name.toLowerCase().includes(filter.toLowerCase())
       || asText(pending[c.name] ?? c.value).toLowerCase().includes(filter.toLowerCase())));
 
@@ -204,7 +207,8 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
           />
           <div className="modal-actions">
             <button className="btn btn-outline" onClick={tryClose} disabled={saving || pushing}>Close</button>
-            <button className="btn btn-outline" onClick={() => setPending({})} disabled={saving || pushing || !pendingCount}>Discard</button>
+            {canEditRow && <button className="btn btn-outline" onClick={() => setPending({})} disabled={saving || pushing || !pendingCount}>Discard</button>}
+            {canEditRow && (
             <button
               className="btn btn-outline"
               onClick={resetToPending}
@@ -213,7 +217,8 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
             >
               Set to Pending
             </button>
-            {tableKey === 'cvlkra' && (
+            )}
+            {canEditRow && tableKey === 'cvlkra' && (
               <>
                 {String(original.sync_status || '').toLowerCase() === 'document_upload_failed' && (
                   <button
@@ -235,7 +240,7 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
                 </button>
               </>
             )}
-            {tableKey === 'cdsl' && (
+            {canEditRow && tableKey === 'cdsl' && (
               <button
                 className="btn btn-outline"
                 onClick={() => push('verify')}
@@ -245,6 +250,7 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
                 Check CDSL result
               </button>
             )}
+            {canEditRow && (<>
             <button
               className="btn btn-outline"
               onClick={() => push()}
@@ -256,6 +262,7 @@ function RowEditor({ tableKey, uniqueId, onClose, onSaved, onPushed }) {
             <button className="btn btn-primary" onClick={save} disabled={saving || pushing || !pendingCount}>
               {saving ? 'Saving…' : `Save ${pendingCount || ''} change${pendingCount === 1 ? '' : 's'}`}
             </button>
+            </>)}
           </div>
         </div>
       </div>
@@ -292,8 +299,8 @@ export default function IntegrationTable() {
     return () => clearTimeout(t);
   }, [table, search, page, reload, def]);
 
-  if (!EDIT_ROLES.includes(user?.role)) {
-    return <Layout title="Tables"><div className="table-card state-msg">Only an Admin or Super Admin can view the tables.</div></Layout>;
+  if (!can(user, 'tables')) {
+    return <Layout title="Tables"><div className="table-card state-msg">You don't have access to Tables.</div></Layout>;
   }
   if (!def) return <Navigate to="/tables/cvlkra" replace />;
 

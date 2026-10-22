@@ -9,11 +9,11 @@ import ClientEditModal from '../components/ClientEditModal';
 import ReasonModal from '../components/ReasonModal';
 import ColumnPicker from '../components/ColumnPicker';
 import { useAuth } from '../context/AuthContext';
+import { can } from '../utils/permissions';
 import useFeatures from '../hooks/useFeatures';
 import { formatDate, formatLabel, orNa } from '../utils/format';
 
 const PAGE_SIZE = 25;
-const CLIENT_ACTION_ROLES = ['Super Admin', 'Admin'];
 
 // Columns of the clients table, in display order (cells are rendered in the component).
 // Shown / hidden columns are chosen with the Columns dropdown and remembered per browser.
@@ -171,7 +171,11 @@ export default function Clients() {
 
   // Delete / Skip Payment: the backend enforces role, reason and transaction safety;
   // these only open the reason dialog.
-  const canAct = CLIENT_ACTION_ROLES.includes(user?.role) && features.trash && features.auditLogs;
+  // Skip Payment = Clients edit, Delete = Clients delete (both need the audit / trash tables).
+  const auditReady = features.trash && features.auditLogs;
+  const canEditClients = can(user, 'clients', 'edit');
+  const canSkip = canEditClients && auditReady;
+  const canDelete = can(user, 'clients', 'delete') && auditReady;
 
   const handleDelete = async (record, reason) => {
     // The identifiers shown in the popup; the backend refuses the delete if they no longer match.
@@ -242,12 +246,12 @@ export default function Clients() {
         return (
           <ActionsMenu
             onView={() => setModalState({ record: r, readOnly: true })}
-            onEdit={() => setModalState({ record: r, readOnly: false })}
-            onSkipPayment={canAct ? () => setReasonAction({ type: 'skip', record: r }) : undefined}
+            onEdit={canEditClients ? () => setModalState({ record: r, readOnly: false }) : undefined}
+            onSkipPayment={canSkip ? () => setReasonAction({ type: 'skip', record: r }) : undefined}
             skipPaymentDisabled={r.current_stage === 'payment'
               ? null
               : `Only at Payment stage (now: ${formatLabel(r.current_stage) || 'N/A'})`}
-            onDelete={canAct ? () => setReasonAction({ type: 'delete', record: r }) : undefined}
+            onDelete={canDelete ? () => setReasonAction({ type: 'delete', record: r }) : undefined}
           />
         );
       default: {

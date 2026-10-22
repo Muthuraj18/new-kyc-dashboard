@@ -25,7 +25,7 @@ export default function ActionsMenu({ onView, onEdit, onSkipPayment, skipPayment
       {open && (
         <div className="actions-menu">
           <button onClick={run(onView)}>View Details</button>
-          <button onClick={run(onEdit)}>Edit</button>
+          {onEdit && <button onClick={run(onEdit)}>Edit</button>}
           {onSkipPayment && (
             <button
               onClick={skipPaymentDisabled ? undefined : run(onSkipPayment)}

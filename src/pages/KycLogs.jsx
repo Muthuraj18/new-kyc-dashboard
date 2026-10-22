@@ -3,8 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../api';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
+import { can } from '../utils/permissions';
 
-const ROLES = ['Super Admin', 'Admin'];
 const fmt = (v) => (v ? new Date(v).toLocaleString() : 'Time not recorded');
 const STATUS_CLASS = (s) => (/error|fail|reject|not verified|mismatch/i.test(s || '') ? 'pill-no'
   : /ok|success|verified|completed|sent|captured|stored|done|uploaded/i.test(s || '') ? 'pill-completed' : 'pill-pending');
@@ -350,7 +350,7 @@ export default function KycLogs() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  if (!ROLES.includes(user?.role)) {
+  if (!can(user, 'kyc_logs')) {
     return <Layout title="KYC Logs"><div className="table-card state-msg">Only an Admin or Super Admin can view KYC logs.</div></Layout>;
   }
   return (

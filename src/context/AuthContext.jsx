@@ -18,7 +18,17 @@ export function AuthProvider({ children }) {
     }
     api
       .get('/auth/me')
-      .then(() => setLoading(false))
+      .then(({ data }) => {
+        // Refresh role / Agent permissions so menu changes made in User Management show on reload.
+        if (data?.user) {
+          setUser((u) => {
+            const next = { ...(u || {}), role: data.user.role, permissions: data.user.permissions ?? null };
+            localStorage.setItem('kyc_user', JSON.stringify(next));
+            return next;
+          });
+        }
+        setLoading(false);
+      })
       .catch(() => {
         localStorage.removeItem('kyc_token');
         localStorage.removeItem('kyc_user');
