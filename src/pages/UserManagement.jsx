@@ -3,6 +3,8 @@ import api from '../api';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { MODULES, LEVELS } from '../utils/permissions';
+import PasswordInput from '../components/PasswordInput';
+import PasswordModal from '../components/PasswordModal';
 
 const EMPTY_FORM = { username: '', password: '', fullName: '', email: '', role: 'Admin', permissions: {} };
 const LEVEL_LABEL = { view: 'View', edit: 'Edit', delete: 'Delete' };
@@ -78,11 +80,12 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
-  const [showPassword, setShowPassword] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [emailEdit, setEmailEdit] = useState(null); // { id, value, error }
   const [accessEdit, setAccessEdit] = useState(null); // { id, username, role, permissions, saving, error }
+  const [passwordReset, setPasswordReset] = useState(null); // { id, username, role }
+  const [notice, setNotice] = useState('');
 
   const isSuperAdmin = currentUser?.role === 'Super Admin';
 
@@ -109,7 +112,6 @@ export default function UserManagement() {
     try {
       await api.post('/users', { ...form, permissions: form.role === 'Agent' ? form.permissions : undefined });
       setForm(EMPTY_FORM);
-      setShowPassword(false);
       loadUsers();
     } catch (err) {
       setCreateError(err.response?.data?.error || 'Failed to create user');
@@ -156,22 +158,7 @@ export default function UserManagement() {
         <form className="table-card um-form" onSubmit={handleCreate}>
           <div className="um-row">
             {field('Username', <input className="field-input" type="text" required value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} />)}
-            {field('Password', (
-              <div className="password-input">
-                <input
-                  className="field-input"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                  value={form.password}
-                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                />
-                <button type="button" className="password-toggle" onClick={() => setShowPassword((s) => !s)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
-                  {showPassword ? 'Hide' : 'Show'}
-                </button>
-              </div>
-            ))}
+            {field('Password', <PasswordInput value={form.password} onChange={(password) => setForm((f) => ({ ...f, password }))} disabled={creating} />)}
             {field('Full Name', <input className="field-input" type="text" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />)}
             {field('Email', <input className="field-input" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />)}
             {field('Role', (
@@ -251,13 +238,31 @@ export default function UserManagement() {
                       </button>
                     )}
                   </td>
-                  <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                  <td>
+                    {new Date(u.created_at).toLocaleDateString()}
+                    {isSuperAdmin && (
+                      <button className="link-btn" style={{ marginLeft: 8 }} onClick={() => setPasswordReset({ id: u.id, username: u.username, role: u.role })}>
+                        Reset password
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {notice && <div className="table-notice">{notice}</div>}
+
+      {passwordReset && (
+        <PasswordModal
+          mode="reset"
+          target={passwordReset}
+          onClose={() => setPasswordReset(null)}
+          onDone={() => { setNotice(`Password reset for ${passwordReset.username}.`); setTimeout(() => setNotice(''), 6000); }}
+        />
+      )}
 
       {accessEdit && (
         <div className="modal-backdrop" onClick={accessEdit.saving ? undefined : () => setAccessEdit(null)}>
