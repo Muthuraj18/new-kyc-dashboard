@@ -2,16 +2,87 @@ import { useEffect, useState } from 'react';
 import api from '../api';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
+import { MODULES, LEVELS } from '../utils/permissions';
+
+const EMPTY_FORM = { username: '', password: '', fullName: '', email: '', role: 'Admin', permissions: {} };
+const LEVEL_LABEL = { view: 'View', edit: 'Edit', delete: 'Delete' };
+
+// One row per sidebar module, one checkbox per level (only the levels that module has).
+// Ticking Edit / Delete also ticks View; unticking View clears the row.
+function PermissionMatrix({ value, onChange, disabled }) {
+  const toggle = (module, level) => {
+    const current = new Set(value[module] || []);
+    if (current.has(level)) {
+      if (level === 'view') current.clear(); else current.delete(level);
+    } else {
+      current.add(level);
+      current.add('view');
+    }
+    const next = { ...value };
+    if (current.size) next[module] = LEVELS.filter((l) => current.has(l)); else delete next[module];
+    onChange(next);
+  };
+  const setAll = (on) => onChange(on ? Object.fromEntries(MODULES.map((m) => [m.key, [...m.levels]])) : {});
+  return (
+    <div className="perm-matrix">
+      <div className="perm-matrix-head">
+        <strong>Agent access</strong>
+        <span>
+          <button type="button" className="link-btn" disabled={disabled} onClick={() => setAll(true)}>Tick all</button>
+          {' · '}
+          <button type="button" className="link-btn" disabled={disabled} onClick={() => setAll(false)}>Clear</button>
+        </span>
+      </div>
+      <table className="data-table data-table--compact">
+        <thead>
+          <tr><th style={{ textAlign: 'left' }}>Module</th>{LEVELS.map((l) => <th key={l}>{LEVEL_LABEL[l]}</th>)}</tr>
+        </thead>
+        <tbody>
+          {MODULES.map((m) => (
+            <tr key={m.key}>
+              <td style={{ textAlign: 'left' }}>{m.label}</td>
+              {LEVELS.map((l) => (
+                <td key={l}>
+                  {m.levels.includes(l) ? (
+                    <input
+                      type="checkbox"
+                      aria-label={`${m.label} ${LEVEL_LABEL[l]}`}
+                      checked={(value[m.key] || []).includes(l)}
+                      disabled={disabled}
+                      onChange={() => toggle(m.key, l)}
+                    />
+                  ) : <span className="na">–</span>}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const permissionSummary = (p) => {
+  const keys = Object.keys(p || {});
+  if (!keys.length) return 'No access';
+  return keys.map((k) => {
+    const label = MODULES.find((m) => m.key === k)?.label || k;
+    const extra = (p[k] || []).filter((l) => l !== 'view');
+    return extra.length ? `${label} (${extra.map((l) => LEVEL_LABEL[l]).join(', ')})` : label;
+  }).join(', ');
+};
 
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({ username: '', password: '', fullName: '', email: '', role: 'Admin' });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [showPassword, setShowPassword] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [emailEdit, setEmailEdit] = useState(null); // { id, value, error }
+  const [accessEdit, setAccessEdit] = useState(null); // { id, username, role, permissions, saving, error }
 
   const isSuperAdmin = currentUser?.role === 'Super Admin';
 
@@ -36,8 +107,9 @@ export default function UserManagement() {
     setCreateError('');
     setCreating(true);
     try {
-      await api.post('/users', form);
-      setForm({ username: '', password: '', fullName: '', email: '', role: 'Admin' });
+      await api.post('/users', { ...form, permissions: form.role === 'Agent' ? form.permissions : undefined });
+      setForm(EMPTY_FORM);
+      setShowPassword(false);
       loadUsers();
     } catch (err) {
       setCreateError(err.response?.data?.error || 'Failed to create user');
@@ -57,35 +129,65 @@ export default function UserManagement() {
     }
   }
 
+  async function saveAccess() {
+    setAccessEdit((a) => ({ ...a, saving: true, error: '' }));
+    try {
+      const { data } = await api.patch(`/users/${accessEdit.id}`, {
+        role: accessEdit.role,
+        ...(accessEdit.role === 'Agent' ? { permissions: accessEdit.permissions } : {}),
+      });
+      setUsers((prev) => prev.map((u) => (u.id === data.data.id ? data.data : u)));
+      setAccessEdit(null);
+    } catch (err) {
+      setAccessEdit((a) => ({ ...a, saving: false, error: err.response?.data?.error || 'Failed to save access' }));
+    }
+  }
+
+  const field = (label, input) => (
+    <div className="um-field">
+      <label>{label}</label>
+      {input}
+    </div>
+  );
+
   return (
     <Layout title="User Management">
       {isSuperAdmin && (
-        <form className="filters-bar" onSubmit={handleCreate} style={{ alignItems: 'flex-end' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Username</label>
-            <input type="text" required value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} />
+        <form className="table-card um-form" onSubmit={handleCreate}>
+          <div className="um-row">
+            {field('Username', <input className="field-input" type="text" required value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} />)}
+            {field('Password', (
+              <div className="password-input">
+                <input
+                  className="field-input"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                />
+                <button type="button" className="password-toggle" onClick={() => setShowPassword((s) => !s)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            ))}
+            {field('Full Name', <input className="field-input" type="text" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />)}
+            {field('Email', <input className="field-input" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />)}
+            {field('Role', (
+              <select className="field-input" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
+                <option value="Admin">Admin</option>
+                <option value="Super Admin">Super Admin</option>
+                <option value="Agent">Agent (choose modules)</option>
+              </select>
+            ))}
+            <button className="btn btn-primary" disabled={creating}>{creating ? 'Creating...' : 'Add User'}</button>
           </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Password</label>
-            <input type="password" required value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Full Name</label>
-            <input type="text" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Email</label>
-            <input type="text" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Role</label>
-            <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
-              <option value="Admin">Admin</option>
-              <option value="Super Admin">Super Admin</option>
-            </select>
-          </div>
-          <button className="btn btn-primary" disabled={creating}>{creating ? 'Creating...' : 'Add User'}</button>
-          {createError && <span style={{ color: 'var(--danger)', fontSize: 13 }}>{createError}</span>}
+          <div className="um-hint">Password: at least 8 characters.</div>
+          {form.role === 'Agent' && (
+            <PermissionMatrix value={form.permissions} onChange={(permissions) => setForm((f) => ({ ...f, permissions }))} disabled={creating} />
+          )}
+          {createError && <div className="form-error" style={{ marginTop: 8 }}>{createError}</div>}
         </form>
       )}
 
@@ -102,6 +204,7 @@ export default function UserManagement() {
                 <th>Full Name</th>
                 <th>Email</th>
                 <th>Role</th>
+                <th>Access</th>
                 <th>Created</th>
               </tr>
             </thead>
@@ -136,6 +239,18 @@ export default function UserManagement() {
                     )}
                   </td>
                   <td>{u.role}</td>
+                  <td style={{ maxWidth: 320, whiteSpace: 'normal' }}>
+                    {u.role === 'Agent' ? permissionSummary(u.permissions) : 'All modules (by role)'}
+                    {isSuperAdmin && u.id !== currentUser?.id && (
+                      <button
+                        className="link-btn"
+                        style={{ marginLeft: 8 }}
+                        onClick={() => setAccessEdit({ id: u.id, username: u.username, role: u.role, permissions: u.permissions || {} })}
+                      >
+                        Edit access
+                      </button>
+                    )}
+                  </td>
                   <td>{new Date(u.created_at).toLocaleDateString()}</td>
                 </tr>
               ))}
@@ -143,6 +258,31 @@ export default function UserManagement() {
           </table>
         )}
       </div>
+
+      {accessEdit && (
+        <div className="modal-backdrop" onClick={accessEdit.saving ? undefined : () => setAccessEdit(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <h3>Access · {accessEdit.username}</h3>
+            <div className="um-field" style={{ marginBottom: 12 }}>
+              <label>Role</label>
+              <select className="field-input" value={accessEdit.role} disabled={accessEdit.saving} onChange={(e) => setAccessEdit((a) => ({ ...a, role: e.target.value }))}>
+                <option value="Admin">Admin</option>
+                <option value="Super Admin">Super Admin</option>
+                <option value="Agent">Agent (choose modules)</option>
+              </select>
+            </div>
+            {accessEdit.role === 'Agent' && (
+              <PermissionMatrix value={accessEdit.permissions} onChange={(permissions) => setAccessEdit((a) => ({ ...a, permissions }))} disabled={accessEdit.saving} />
+            )}
+            <p className="um-hint">Changes apply to an Agent right away; the menu updates at their next login or page reload.</p>
+            {accessEdit.error && <div className="form-error">{accessEdit.error}</div>}
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setAccessEdit(null)} disabled={accessEdit.saving}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveAccess} disabled={accessEdit.saving}>{accessEdit.saving ? 'Saving…' : 'Save access'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

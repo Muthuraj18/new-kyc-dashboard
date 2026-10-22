@@ -17,6 +17,7 @@ import {
 } from './icons';
 import useFeatures from '../hooks/useFeatures';
 import { useAuth } from '../context/AuthContext';
+import { can } from '../utils/permissions';
 
 // Integration tables editable from the Tables menu (keys match GET /api/tables).
 export const INTEGRATION_TABLES = [
@@ -28,24 +29,24 @@ export const INTEGRATION_TABLES = [
 ];
 
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Dashboard', Icon: DashboardIcon },
-  { to: '/clients', label: 'Clients', Icon: ClientsIcon },
-  { to: '/need-attention', label: 'Need Attention', Icon: AlertIcon, roles: ['Super Admin', 'Admin'] },
-  { to: '/payments', label: 'Payments', Icon: PaymentsIcon },
-  { to: '/kyc-status', label: 'KYC Status', Icon: KycStatusIcon },
-  { to: '/integrations', label: 'Integrations', Icon: IntegrationsIcon },
+  { to: '/dashboard', label: 'Dashboard', Icon: DashboardIcon, module: 'dashboard' },
+  { to: '/clients', label: 'Clients', Icon: ClientsIcon, module: 'clients' },
+  { to: '/need-attention', label: 'Need Attention', Icon: AlertIcon, module: 'need_attention' },
+  { to: '/payments', label: 'Payments', Icon: PaymentsIcon, module: 'payments' },
+  { to: '/kyc-status', label: 'KYC Status', Icon: KycStatusIcon, module: 'kyc_status' },
+  { to: '/integrations', label: 'Integrations', Icon: IntegrationsIcon, module: 'integrations' },
   {
     to: '/tables',
     label: 'Tables',
     Icon: TableIcon,
-    roles: ['Super Admin', 'Admin'],
+    module: 'tables',
     children: INTEGRATION_TABLES.map((t) => ({ to: `/tables/${t.key}`, label: t.label })),
   },
-  { to: '/kyc-logs', label: 'KYC Logs', Icon: LogsIcon, roles: ['Super Admin', 'Admin'] },
-  { to: '/user-management', label: 'User Management', Icon: UserManagementIcon },
-  { to: '/upload', label: 'Upload', Icon: UploadIcon },
-  { to: '/audit-logs', label: 'Audit Logs', Icon: AuditLogsIcon, feature: 'auditLogs', roles: ['Super Admin'] },
-  { to: '/trash', label: 'Trash', Icon: TrashIcon, feature: 'trash', roles: ['Super Admin'] },
+  { to: '/kyc-logs', label: 'KYC Logs', Icon: LogsIcon, module: 'kyc_logs' },
+  { to: '/user-management', label: 'User Management', Icon: UserManagementIcon, module: 'user_management' },
+  { to: '/upload', label: 'Upload', Icon: UploadIcon, module: 'upload' },
+  { to: '/audit-logs', label: 'Audit Logs', Icon: AuditLogsIcon, feature: 'auditLogs', module: 'audit_logs' },
+  { to: '/trash', label: 'Trash', Icon: TrashIcon, feature: 'trash', module: 'trash' },
 ];
 
 function NavGroup({ item }) {
@@ -88,7 +89,7 @@ export default function Sidebar() {
   const features = useFeatures();
   const { user } = useAuth();
   const items = NAV_ITEMS.filter((item) => (!item.feature || features[item.feature])
-    && (!item.roles || item.roles.includes(user?.role)));
+    && can(user, item.module));
 
   return (
     <aside className="sidebar">

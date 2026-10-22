@@ -6,6 +6,7 @@ import ReasonModal from '../components/ReasonModal';
 import FieldEditor from '../components/FieldEditor';
 import DocumentUploadModal, { prepareImage } from '../components/DocumentUploadModal';
 import { useAuth } from '../context/AuthContext';
+import { can } from '../utils/permissions';
 import {
   PinIcon,
   ZoomInIcon,
@@ -201,7 +202,6 @@ const NOT_CONNECTED = 'Not connected to the backend yet.';
 // Clockwise preview rotation (any multiple of 90) -> 0/90/180/270.
 const normalizeRotation = (deg) => ((deg % 360) + 360) % 360;
 
-const EDIT_ROLES = ['Super Admin', 'Admin'];
 // Documents an admin can replace with Upload File.
 const UPLOADABLE = { livephoto: 'IPV live photo', signature: 'Signature' };
 
@@ -226,7 +226,7 @@ export default function ClientDetail() {
   const [docs, setDocs] = useState({}); // docKey -> { loading } | { error } | { type, url, fileName, searched }
   const previewRef = useRef(null);
   const { user } = useAuth();
-  const canEdit = EDIT_ROLES.includes(user?.role);
+  const canEdit = can(user, 'clients', 'edit');
   const [editDefs, setEditDefs] = useState({}); // field key -> definition (editable fields only)
   const [pending, setPending] = useState({}); // field key -> new value, not saved yet
   const [editingKey, setEditingKey] = useState(null);

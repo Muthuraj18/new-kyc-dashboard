@@ -4,8 +4,8 @@ import api from '../api';
 import Layout from '../components/Layout';
 import CopyableCell from '../components/CopyableCell';
 import { useAuth } from '../context/AuthContext';
+import { can } from '../utils/permissions';
 
-const VIEW_ROLES = ['Super Admin', 'Admin'];
 const fmtDate = (v) => (v ? new Date(v).toLocaleString() : 'N/A');
 
 // CSV of the rows on screen (module / search / date filters applied). UTF-8 BOM so Excel
@@ -60,7 +60,7 @@ export default function NeedAttention() {
   const [dateTo, setDateTo] = useState('');
   const [reload, setReload] = useState(0);
   const [shownResponse, setShownResponse] = useState(null); // "<module>-<unique_id>" whose full response is open
-  const allowed = VIEW_ROLES.includes(user?.role);
+  const allowed = can(user, 'need_attention');
 
   useEffect(() => {
     if (!allowed) return;

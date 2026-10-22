@@ -3,11 +3,11 @@ import readXlsxFile from 'read-excel-file';
 import api from '../api';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
+import { can } from '../utils/permissions';
 import { UploadIcon } from '../components/icons';
 import { DropZone, IssuesTable, UploadSummary, formatSize } from '../components/UploadParts';
 import StampPaperUpload from './StampPaperUpload';
 
-const UPLOAD_ROLES = ['Super Admin', 'Admin'];
 
 const TABS = [
   { key: 'boid', label: 'BOID' },
@@ -168,7 +168,7 @@ export default function Upload() {
   const { user } = useAuth();
   const [tab, setTab] = useState('boid');
 
-  if (!UPLOAD_ROLES.includes(user?.role)) {
+  if (!can(user, 'upload', 'edit')) {
     return (
       <Layout title="Upload">
         <div className="table-card state-msg">Only an admin can upload stock.</div>
