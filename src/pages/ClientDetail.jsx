@@ -191,6 +191,7 @@ function FieldValue({ field, value }) {
 const DOCUMENTS = [
   { key: 'livephoto', label: 'Client-live-image' },
   { key: 'signature', label: 'Signature' },
+  { key: 'pancard', label: 'PAN card' },
   { key: 'unsignedpdf', label: 'Unsigned pdf' },
   { key: 'esignedpdf', label: 'Esigned pdf' },
   { key: 'esignredirect', label: 'Esign Redirect Url' },
@@ -203,7 +204,7 @@ const NOT_CONNECTED = 'Not connected to the backend yet.';
 const normalizeRotation = (deg) => ((deg % 360) + 360) % 360;
 
 // Documents an admin can replace with Upload File.
-const UPLOADABLE = { livephoto: 'IPV live photo', signature: 'Signature' };
+const UPLOADABLE = { livephoto: 'IPV live photo', signature: 'Signature', pancard: 'PAN card' };
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -457,7 +458,7 @@ export default function ClientDetail() {
 
   const startUpload = () => {
     if (!UPLOADABLE[activeDoc]) {
-      showNotice('Upload File replaces the Client-live-image or the Signature. Open one of them first.');
+      showNotice('Upload File replaces the Client-live-image, the Signature or the PAN card. Open one of them first.');
       return;
     }
     uploadInputRef.current?.click();
