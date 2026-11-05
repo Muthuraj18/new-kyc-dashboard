@@ -7,9 +7,18 @@ const REFRESH_MS = 5 * 60 * 1000;
 const ITEMS = [
   { key: 'stampPaper', label: 'Stamp Paper' },
   { key: 'boid', label: 'BOID' },
+  { key: 'razorpayFee', label: 'Razorpay fee credit' },
 ];
+const rupees = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(v);
 
-// Topbar bell: low-stock alerts for BOID / Stamp Paper (same data as the Dashboard cards).
+// Current value and limit for one item, as shown in the bell (limits come from the Dashboard).
+const detail = (item) => {
+  if (item.key === 'razorpayFee') return `${rupees(item.feeCreditsRupees)} (limit ${rupees(item.limit)})`;
+  return `${item.available} available (limit ${item.limit})`;
+};
+
+// Topbar bell: low-limit alerts for Stamp Paper, BOID and (Super Admin and Admin) the Razorpay fee credit.
+// Uses the same limits as the Dashboard banner. Dismissing the banner does not hide this.
 export default function NotificationBell() {
   const navigate = useNavigate();
   const ref = useRef(null);
@@ -54,9 +63,9 @@ export default function NotificationBell() {
               >
                 <span className="notif-dot" />
                 <span>
-                  <b>Low {i.label} stock</b>
+                  <b>Below limit: {i.label}</b>
                   <span className="notif-text">
-                    Only {summary[i.key].available} available (alert below {summary.threshold}). Please replenish.
+                    Now {detail({ key: i.key, ...summary[i.key] })}. Please act.
                   </span>
                 </span>
               </button>
@@ -67,7 +76,7 @@ export default function NotificationBell() {
               {summary && (
                 <span className="notif-text">
                   {ITEMS.filter((i) => summary[i.key] && !summary[i.key].error)
-                    .map((i) => `${i.label}: ${summary[i.key].available} available`)
+                    .map((i) => `${i.label}: ${detail({ key: i.key, ...summary[i.key] })}`)
                     .join(' · ')}
                 </span>
               )}

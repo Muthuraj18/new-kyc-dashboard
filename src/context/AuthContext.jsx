@@ -37,8 +37,18 @@ export function AuthProvider({ children }) {
       });
   }, []);
 
+  // The Dashboard's low-limit banner stays hidden after an X click only until the next login.
+  const clearLowLimitDismissals = () => {
+    try {
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('kyc_low_limit_dismissed:'))
+        .forEach((k) => localStorage.removeItem(k));
+    } catch { /* storage unavailable */ }
+  };
+
   const login = useCallback(async (username, password) => {
     const { data } = await api.post('/auth/login', { username, password });
+    clearLowLimitDismissals();
     localStorage.setItem('kyc_token', data.token);
     localStorage.setItem('kyc_user', JSON.stringify(data.user));
     setUser(data.user);
@@ -46,6 +56,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
+    clearLowLimitDismissals();
     localStorage.removeItem('kyc_token');
     localStorage.removeItem('kyc_user');
     setUser(null);
