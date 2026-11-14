@@ -2268,3 +2268,99 @@ table.data-table--compact {
   width: 16px;
   height: 16px;
 }
+
+/* ---------- PRE KYC - d: dashboard quick filters ---------- */
+.flow-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -6px 0 16px;
+}
+.flow-chips-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 2px;
+}
+.flow-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12.5px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.flow-chip:hover { border-color: var(--accent); }
+.flow-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.flow-chip-count {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  background: rgba(108, 71, 230, 0.12);
+  color: var(--accent);
+}
+.flow-chip.active .flow-chip-count { background: rgba(255, 255, 255, 0.25); color: #fff; }
+
+/* ---------- PRE KYC - d: client detail flow steps ---------- */
+.flow-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.flow-step {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.flow-step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.flow-step-head em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.flow-ok { background: #dcfce7; color: #166534; }
+.flow-pending { background: #fef3c7; color: #92400e; }
+@media (max-width: 720px) {
+  .flow-steps { grid-template-columns: 1fr; }
+}
+.flow-step-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.flow-step-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  max-width: 100%;
+}
+.flow-step-note a { word-break: break-all; }

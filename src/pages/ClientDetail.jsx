@@ -196,6 +196,8 @@ const DOCUMENTS = [
   { key: 'esignedpdf', label: 'Esigned pdf' },
   { key: 'esignredirect', label: 'Esign Redirect Url' },
   { key: 'aadhaarxml', label: 'Aadhaar XML' },
+  // PRE KYC - d: the PDF made by Generate PDF (listed only once generated, held in the browser).
+  { key: 'generatedpdf', label: 'Generated PDF', local: true },
 ];
 
 const NOT_CONNECTED = 'Not connected to the backend yet.';
@@ -447,6 +449,76 @@ export default function ClientDetail() {
     }
   };
 
+  // ---- PRE KYC - d flow: Digilocker flow | PDF | Esign flow ----
+  const isPreKycD = client?.kyc_type === 'PRE KYC - d';
+  const [dlState, setDlState] = useState(null); // { requestId, url, emailedTo? } - last DigiLocker request
+
+  useEffect(() => {
+    if (!isPreKycD) return;
+    api.get(`/clients/${id}/digilocker`).then(({ data }) => setDlState(data.data)).catch(() => {});
+  }, [id, isPreKycD]);
+
+  // 1a. New Setu DigiLocker request; the link is emailed to the client, who approves it.
+  const startDigilocker = async () => {
+    if (busy) return;
+    if (dlState && !window.confirm('Start a new DigiLocker request? The previous link stops being used.')) return;
+    setBusy('digilocker');
+    try {
+      const { data } = await api.post(`/clients/${id}/digilocker/start`);
+      const r = data.data;
+      setDlState({ requestId: r.requestId, url: r.url, emailedTo: r.emailError ? null : r.emailedTo });
+      showNotice(r.emailError || `DigiLocker link emailed to ${r.emailedTo}. Click "Fetch data & XML" after the client approves it.`, { error: !!r.emailError, ms: 8000 });
+    } catch (err) {
+      showNotice(err.response?.data?.error || 'Could not start DigiLocker', { error: true });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  // 1b. Pull the Aadhaar data + signed XML from DigiLocker and save them.
+  const fetchDigilocker = async () => {
+    if (busy) return;
+    setBusy('dlfetch');
+    try {
+      const { data } = await api.post(`/clients/${id}/digilocker/fetch`);
+      const r = data.data;
+      if (r.client) setClient(r.client);
+      if (r.clientDetails) setDetails(r.clientDetails);
+      setDocs((d) => ({ ...d, aadhaarxml: undefined }));
+      if (activeDoc === 'aadhaarxml') loadDoc('aadhaarxml');
+      setOpenModule('digilocker');
+      const xmlNote = r.xml?.saved ? ' Aadhaar XML saved.' : ` Aadhaar XML not saved: ${r.xml?.error || 'unknown reason'}`;
+      showNotice(`DigiLocker data fetched${r.details?.name ? ` for ${r.details.name}` : ''}.${xmlNote}`, { error: !r.xml?.saved, ms: 8000 });
+    } catch (err) {
+      showNotice(err.response?.data?.error || 'Could not fetch the DigiLocker data', { error: true });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  // 2. Generate the KYC PDF and show it in the preview.
+  const generatePdf = async () => {
+    if (busy) return;
+    setBusy('pdf');
+    try {
+      const response = await api.get(`/clients/${id}/generated-pdf`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const fileName = (/filename="([^"]+)"/.exec(response.headers['content-disposition'] || '') || [])[1] || 'application.pdf';
+      setDocs((d) => {
+        if (d.generatedpdf?.url) URL.revokeObjectURL(d.generatedpdf.url);
+        return { ...d, generatedpdf: { type: 'pdf', url, fileName } };
+      });
+      setActiveDoc('generatedpdf');
+      showNotice('PDF generated - shown in the preview.');
+    } catch (err) {
+      let message = 'Could not generate the PDF';
+      try { message = JSON.parse(await err.response.data.text()).error || message; } catch { /* not JSON */ }
+      showNotice(message, { error: true });
+    } finally {
+      setBusy('');
+    }
+  };
+
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen();
     else previewRef.current?.requestFullscreen?.();
@@ -622,6 +694,73 @@ export default function ClientDetail() {
             </div>
           </div>
 
+          {isPreKycD && (
+            <div className="flow-steps">
+              <div className="flow-step">
+                <div className="flow-step-head">
+                  <span>Digilocker flow</span>
+                  <em className={client.digilocker_done ? 'flow-ok' : 'flow-pending'}>{client.digilocker_done ? 'Done' : 'Incomplete'}</em>
+                </div>
+                <div className="flow-step-actions">
+                  <button className="btn btn-blue" disabled={!canEdit || !!busy} onClick={startDigilocker}>
+                    {busy === 'digilocker' ? 'Starting…' : dlState ? 'Restart Digilocker' : 'Start Digilocker'}
+                  </button>
+                  {dlState && (
+                    <button className="btn btn-outline" disabled={!canEdit || !!busy} onClick={fetchDigilocker} title="Pull the Aadhaar data and XML after the client approved DigiLocker">
+                      {busy === 'dlfetch' ? 'Fetching…' : 'Fetch data & XML'}
+                    </button>
+                  )}
+                </div>
+                {dlState?.url && (
+                  <div className="flow-step-note">
+                    <span>Client approves DigiLocker on this link{dlState.emailedTo ? ` (emailed to ${dlState.emailedTo})` : ''}:</span>
+                    <a className="mono" href={dlState.url} target="_blank" rel="noreferrer">{dlState.url}</a>
+                    <button
+                      className="link-btn"
+                      onClick={async () => {
+                        try { await copyToClipboard(dlState.url); showNotice('DigiLocker link copied.'); } catch { showNotice('Could not copy the link', { error: true }); }
+                      }}
+                    >
+                      Copy link
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="flow-step">
+                <div className="flow-step-head">
+                  <span>PDF</span>
+                  {docs.generatedpdf?.url && <em className="flow-ok">Generated</em>}
+                </div>
+                <button
+                  className="btn btn-blue"
+                  disabled={!canEdit || !!busy || !client.digilocker_done}
+                  title={client.digilocker_done ? 'Generate the KYC PDF and preview it' : 'Complete DigiLocker first'}
+                  onClick={generatePdf}
+                >
+                  {busy === 'pdf' ? 'Generating…' : 'Generate PDF'}
+                </button>
+              </div>
+              <div className="flow-step">
+                <div className="flow-step-head">
+                  <span>Esign flow</span>
+                  {(() => {
+                    const signed = String(client.current_stage || '').trim().toLowerCase() === 'esigned';
+                    return <em className={signed ? 'flow-ok' : 'flow-pending'}>{signed ? 'Done' : waitingForEsign ? 'Waiting for client' : 'Incomplete'}</em>;
+                  })()}
+                </div>
+                <button
+                  className="btn btn-blue"
+                  disabled={!canEdit || !!busy || !client.digilocker_done}
+                  title={client.digilocker_done ? 'Start Setu eSign and email the signing link to the client' : 'Complete DigiLocker first'}
+                  onClick={handleSaveAndGenerate}
+                >
+                  {busy === 'generate' ? 'Starting…' : 'Start Esign flow'}
+                </button>
+                <span className="flow-step-note">After the client signs, the signed PDF is emailed to {client.email || 'their registered email'}.</span>
+              </div>
+            </div>
+          )}
+
           {regenLink && (
             <div className="regen-link" role="status">
               <div className="regen-link-text">
@@ -737,7 +876,7 @@ export default function ClientDetail() {
             <section className="detail-panel">
               <div className="detail-panel-title">Documents</div>
               <ul className="doc-list">
-                {DOCUMENTS.filter((d) => d.key !== 'aadhaarxml' || canEdit).map((d) => (
+                {DOCUMENTS.filter((d) => (d.key !== 'aadhaarxml' || canEdit) && (!d.local || docs[d.key]?.url)).map((d) => (
                   <li key={d.key}>
                     <button
                       className={`doc-item ${activeDoc === d.key ? 'active' : ''}`}
@@ -820,15 +959,17 @@ export default function ClientDetail() {
       {confirmGenerate && (
         <ReasonModal
           danger
-          title="Save & regenerate KYC PDF"
+          title={isPreKycD ? 'Start eSign flow' : 'Save & regenerate KYC PDF'}
           details={client ? [
             { label: 'Client Name', value: client.client_name },
             { label: 'PAN Number', value: client.pan_number },
             { label: 'Email', value: client.email },
             { label: 'Current Stage', value: client.current_stage },
           ] : undefined}
-          confirmLabel="Save & regenerate"
-          acknowledge="I understand the client's current eSign will be replaced and they must eSign the new PDF."
+          confirmLabel={isPreKycD ? 'Start eSign' : 'Save & regenerate'}
+          acknowledge={isPreKycD
+            ? 'I have checked the generated PDF and want to send it to the client for eSign.'
+            : "I understand the client's current eSign will be replaced and they must eSign the new PDF."}
           onConfirm={runSaveAndGenerate}
           onClose={() => { if (!busy) setConfirmGenerate(false); }}
         >
@@ -849,9 +990,20 @@ export default function ClientDetail() {
           {activeDoc === 'livephoto' && normalizeRotation(rotation) !== 0 && (
             <p style={{ marginTop: 0 }}>The rotated live photo is saved first.</p>
           )}
-          A new KYC PDF is generated from the saved data, the client moves back to the
-          <b> eSign (in progress)</b> stage, and they are emailed the unsigned PDF with a direct
-          eSign link. The previous eSign is no longer used.
+          {isPreKycD ? (
+            <>
+              The KYC PDF is generated from the saved data and sent to Setu for Aadhaar eSign. The
+              client is emailed the signing link at <b>{client?.email || 'their registered email'}</b>.
+              Once they sign, the signed PDF is emailed to that address automatically
+              (use <b>Check eSign status</b> to update the stage right away).
+            </>
+          ) : (
+            <>
+              A new KYC PDF is generated from the saved data, the client moves back to the
+              <b> eSign (in progress)</b> stage, and they are emailed the unsigned PDF with a direct
+              eSign link. The previous eSign is no longer used.
+            </>
+          )}
         </ReasonModal>
       )}
 
