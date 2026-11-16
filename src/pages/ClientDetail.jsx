@@ -260,6 +260,7 @@ export default function ClientDetail() {
     try {
       const { data } = await api.post(`/clients/${id}/esign-status`);
       if (data.data.client) setClient(data.data.client);
+      if (data.data.exports) setExportResults(data.data.exports.results);
       setEsignCheck({ status: data.data.status, message: data.data.message });
       if (!quiet || data.data.status === 'completed') {
         showNotice(data.data.message, { error: !['completed', 'pending'].includes(data.data.status), ms: 6000 });
@@ -491,6 +492,25 @@ export default function ClientDetail() {
       showNotice(`DigiLocker data fetched${r.details?.name ? ` for ${r.details.name}` : ''}.${xmlNote}`, { error: !r.xml?.saved, ms: 8000 });
     } catch (err) {
       showNotice(err.response?.data?.error || 'Could not fetch the DigiLocker data', { error: true });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  // 4. After eSign: CVL KRA -> CDSL -> NSE -> BSE -> TechExcel (also run automatically by the
+  // eSign status check when it first sees the client as signed).
+  const [exportResults, setExportResults] = useState(null); // [{ key, label, ok, message }]
+  const runExports = async () => {
+    if (busy) return;
+    setBusy('exports');
+    try {
+      const { data } = await api.post(`/clients/${id}/exports`);
+      if (data.data.client) setClient(data.data.client);
+      setExportResults(data.data.results);
+      const failed = data.data.results.filter((r) => !r.ok).map((r) => r.label);
+      showNotice(failed.length ? `Exports finished; failed: ${failed.join(', ')}.` : 'All exports completed (CVL KRA, CDSL, NSE, BSE, TechExcel).', { error: failed.length > 0, ms: 8000 });
+    } catch (err) {
+      showNotice(err.response?.data?.error || 'Could not run the exports', { error: true });
     } finally {
       setBusy('');
     }
@@ -757,6 +777,23 @@ export default function ClientDetail() {
                   {busy === 'generate' ? 'Starting…' : 'Start Esign flow'}
                 </button>
                 <span className="flow-step-note">After the client signs, the signed PDF is emailed to {client.email || 'their registered email'}.</span>
+                {String(client.current_stage || '').trim().toLowerCase() === 'esigned' && (
+                  <>
+                    <button className="btn btn-outline" disabled={!canEdit || !!busy} onClick={runExports} title="Push to CVL KRA, CDSL, NSE, BSE and TechExcel (safe to run again)">
+                      {busy === 'exports' ? 'Running exports…' : exportResults ? 'Run exports again' : 'Run exports'}
+                    </button>
+                    {exportResults && (
+                      <ul className="flow-exports">
+                        {exportResults.map((r) => (
+                          <li key={r.key} title={r.message}>
+                            <em className={r.ok ? 'flow-ok' : 'flow-pending'}>{r.ok ? '✓' : '✗'}</em> {r.label}
+                            {!r.ok && <span className="flow-export-error">{r.message}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           )}

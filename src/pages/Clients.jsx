@@ -231,7 +231,19 @@ export default function Clients() {
     switch (key) {
       case 'created_at': return formatDate(r.created_at);
       case 'application_id': return orNa(r.application_id);
-      case 'kyc_type': return orNa(r.kyc_type);
+      case 'kyc_type': {
+        // PRE KYC - d rows also show which step is still open (same rules as the quick filters).
+        const flow = r.kyc_type !== 'PRE KYC - d' ? null
+          : !r.digilocker_done ? PRE_KYC_D_FLOWS[0]
+            : String(r.current_stage || '').trim().toLowerCase() !== 'esigned' ? PRE_KYC_D_FLOWS[1]
+              : null;
+        return (
+          <div className="kyc-type-cell">
+            <span>{orNa(r.kyc_type)}</span>
+            {flow && <span className="flow-tag" title={flow.title}>{flow.label}</span>}
+          </div>
+        );
+      }
       case 'client_code': return <CopyableCell value={r.client_code} />;
       case 'client_name': return orNa(r.client_name);
       case 'pan_number': return <CopyableCell value={r.pan_number} />;
@@ -317,7 +329,6 @@ export default function Clients() {
 
       {/* PRE KYC - d: clients stuck before DigiLocker / before eSign. Click again to clear. */}
       <div className="flow-chips">
-        <span className="flow-chips-label">PRE KYC - d</span>
         {PRE_KYC_D_FLOWS.map((f) => {
           const active = filters.flow === f.value;
           return (
