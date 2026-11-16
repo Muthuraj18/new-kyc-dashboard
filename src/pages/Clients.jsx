@@ -60,7 +60,7 @@ const DASHBOARD_STATUSES = [
   { value: 'completed', label: 'Completed' }, // Re-KYC client_id + PAN match
 ];
 
-// "PRE KYC - d" quick filters (same rules as the backend's PRE_KYC_D_FLOWS).
+// "PRE KYC - d" open step, shown as a tag in the KYC Type cell (same rules as the backend's PRE_KYC_D_FLOWS).
 const PRE_KYC_D_FLOWS = [
   { value: 'digilocker_incomplete', label: 'Digilocker incomplete', title: 'PRE KYC - d clients with no DigiLocker data yet' },
   { value: 'esign_incomplete', label: 'Esign incomplete', title: 'PRE KYC - d clients with DigiLocker done but not eSigned' },
@@ -83,9 +83,7 @@ export default function Clients() {
     stage: '',
     dateFrom: '',
     dateTo: '',
-    flow: '', // PRE KYC - d quick filter
   });
-  const [flowCounts, setFlowCounts] = useState({});
   const [filterOptions, setFilterOptions] = useState({ kycTypes: [], statuses: [], stages: [], dashboardStatuses: [] });
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState([]);
@@ -114,7 +112,6 @@ export default function Clients() {
 
   useEffect(() => {
     api.get('/clients/filters').then(({ data }) => setFilterOptions(data)).catch(() => {});
-    api.get('/clients/flow-counts').then(({ data }) => setFlowCounts(data.data || {})).catch(() => {});
     api.get('/clients/columns')
       .then(({ data }) => {
         const groups = data.data.groups.map((g) => ({ ...g, columns: g.columns.map((c) => ({ key: c.key, label: c.name })) }));
@@ -325,25 +322,6 @@ export default function Clients() {
           defaults={DEFAULT_COLUMNS}
         />
         <button className="btn btn-primary" onClick={handleExport}>Export &#8595;</button>
-      </div>
-
-      {/* PRE KYC - d: clients stuck before DigiLocker / before eSign. Click again to clear. */}
-      <div className="flow-chips">
-        {PRE_KYC_D_FLOWS.map((f) => {
-          const active = filters.flow === f.value;
-          return (
-            <button
-              key={f.value}
-              type="button"
-              title={f.title}
-              className={`flow-chip${active ? ' active' : ''}`}
-              onClick={() => { setPage(1); setFilters((prev) => ({ ...prev, flow: active ? '' : f.value })); }}
-            >
-              {f.label}
-              {flowCounts[f.value] !== undefined && <span className="flow-chip-count">{flowCounts[f.value]}</span>}
-            </button>
-          );
-        })}
       </div>
 
       <div className="table-card">

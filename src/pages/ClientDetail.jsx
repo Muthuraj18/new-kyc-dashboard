@@ -426,10 +426,16 @@ export default function ClientDetail() {
       if (!saved) throw new Error('The photo was not saved, so the PDF was not regenerated.');
       if (saved.pdfWarning) throw new Error(`${saved.pdfWarning} The PDF was not regenerated.`);
       let result;
+      // PRE KYC - d: go straight to Setu's eSign page; Setu returns to the eSign result page.
+      const returnUrl = isPreKycD ? `${window.location.origin}/clients/${id}/esign-result` : undefined;
       try {
-        ({ data: { data: result } } = await api.post(`/clients/${id}/regenerate-esign`, { reason }));
+        ({ data: { data: result } } = await api.post(`/clients/${id}/regenerate-esign`, { reason, returnUrl }));
       } catch (err) {
         throw new Error(err.response?.data?.error || 'PDF regeneration failed');
+      }
+      if (isPreKycD && result.redirect && result.signingUrl) {
+        window.location.assign(result.signingUrl);
+        return;
       }
       setConfirmGenerate(false);
       if (result.client) setClient(result.client);
@@ -459,45 +465,26 @@ export default function ClientDetail() {
     api.get(`/clients/${id}/digilocker`).then(({ data }) => setDlState(data.data)).catch(() => {});
   }, [id, isPreKycD]);
 
-  // 1a. New Setu DigiLocker request; the link is emailed to the client, who approves it.
+  // 1a. New Setu DigiLocker request, then straight to Setu's DigiLocker page. After the client
+  // approves (Aadhaar + OTP), Setu returns to /clients/:id/digilocker-result, which fetches the
+  // Aadhaar data + XML (XML stored in S3) and shows the result.
   const startDigilocker = async () => {
     if (busy) return;
-    if (dlState && !window.confirm('Start a new DigiLocker request? The previous link stops being used.')) return;
+    if (dlState && !window.confirm('Start a new DigiLocker request? The previous one stops being used.')) return;
     setBusy('digilocker');
     try {
-      const { data } = await api.post(`/clients/${id}/digilocker/start`);
-      const r = data.data;
-      setDlState({ requestId: r.requestId, url: r.url, emailedTo: r.emailError ? null : r.emailedTo });
-      showNotice(r.emailError || `DigiLocker link emailed to ${r.emailedTo}. Click "Fetch data & XML" after the client approves it.`, { error: !!r.emailError, ms: 8000 });
+      const returnUrl = `${window.location.origin}/clients/${id}/digilocker-result`;
+      const { data } = await api.post(`/clients/${id}/digilocker/start`, { returnUrl });
+      window.location.assign(data.data.url);
     } catch (err) {
       showNotice(err.response?.data?.error || 'Could not start DigiLocker', { error: true });
-    } finally {
       setBusy('');
     }
   };
 
-  // 1b. Pull the Aadhaar data + signed XML from DigiLocker and save them.
-  const fetchDigilocker = async () => {
-    if (busy) return;
-    setBusy('dlfetch');
-    try {
-      const { data } = await api.post(`/clients/${id}/digilocker/fetch`);
-      const r = data.data;
-      if (r.client) setClient(r.client);
-      if (r.clientDetails) setDetails(r.clientDetails);
-      setDocs((d) => ({ ...d, aadhaarxml: undefined }));
-      if (activeDoc === 'aadhaarxml') loadDoc('aadhaarxml');
-      setOpenModule('digilocker');
-      const xmlNote = r.xml?.saved ? ' Aadhaar XML saved.' : ` Aadhaar XML not saved: ${r.xml?.error || 'unknown reason'}`;
-      showNotice(`DigiLocker data fetched${r.details?.name ? ` for ${r.details.name}` : ''}.${xmlNote}`, { error: !r.xml?.saved, ms: 8000 });
-    } catch (err) {
-      showNotice(err.response?.data?.error || 'Could not fetch the DigiLocker data', { error: true });
-    } finally {
-      setBusy('');
-    }
-  };
+  // 1b. Fetching the Aadhaar data + XML happens on the DigiLocker result page (DigilockerResult.jsx).
 
-  // 4. After eSign: CVL KRA -> CDSL -> NSE -> BSE -> TechExcel (also run automatically by the
+  // 4. After eSign: CVL KRA -> CDSL -> NSE -> BSE -> MF -> TechExcel (also run automatically by the
   // eSign status check when it first sees the client as signed).
   const [exportResults, setExportResults] = useState(null); // [{ key, label, ok, message }]
   const runExports = async () => {
@@ -508,7 +495,7 @@ export default function ClientDetail() {
       if (data.data.client) setClient(data.data.client);
       setExportResults(data.data.results);
       const failed = data.data.results.filter((r) => !r.ok).map((r) => r.label);
-      showNotice(failed.length ? `Exports finished; failed: ${failed.join(', ')}.` : 'All exports completed (CVL KRA, CDSL, NSE, BSE, TechExcel).', { error: failed.length > 0, ms: 8000 });
+      showNotice(failed.length ? `Exports finished; failed: ${failed.join(', ')}.` : 'All exports completed (CVL KRA, CDSL, NSE, BSE, MF, TechExcel).', { error: failed.length > 0, ms: 8000 });
     } catch (err) {
       showNotice(err.response?.data?.error || 'Could not run the exports', { error: true });
     } finally {
@@ -723,28 +710,15 @@ export default function ClientDetail() {
                 </div>
                 <div className="flow-step-actions">
                   <button className="btn btn-blue" disabled={!canEdit || !!busy} onClick={startDigilocker}>
-                    {busy === 'digilocker' ? 'Starting…' : dlState ? 'Restart Digilocker' : 'Start Digilocker'}
+                    {busy === 'digilocker' ? 'Opening DigiLocker…' : dlState ? 'Restart Digilocker' : 'Start Digilocker'}
                   </button>
-                  {dlState && (
-                    <button className="btn btn-outline" disabled={!canEdit || !!busy} onClick={fetchDigilocker} title="Pull the Aadhaar data and XML after the client approved DigiLocker">
-                      {busy === 'dlfetch' ? 'Fetching…' : 'Fetch data & XML'}
-                    </button>
+                  {dlState && !client.digilocker_done && (
+                    <Link className="btn btn-outline" to={`/clients/${id}/digilocker-result`} title="Fetch the Aadhaar data and XML if DigiLocker was approved but the page did not come back">
+                      Fetch result
+                    </Link>
                   )}
                 </div>
-                {dlState?.url && (
-                  <div className="flow-step-note">
-                    <span>Client approves DigiLocker on this link{dlState.emailedTo ? ` (emailed to ${dlState.emailedTo})` : ''}:</span>
-                    <a className="mono" href={dlState.url} target="_blank" rel="noreferrer">{dlState.url}</a>
-                    <button
-                      className="link-btn"
-                      onClick={async () => {
-                        try { await copyToClipboard(dlState.url); showNotice('DigiLocker link copied.'); } catch { showNotice('Could not copy the link', { error: true }); }
-                      }}
-                    >
-                      Copy link
-                    </button>
-                  </div>
-                )}
+                <span className="flow-step-note">Opens Setu DigiLocker; after the client approves, the Aadhaar data and XML are fetched and saved.</span>
               </div>
               <div className="flow-step">
                 <div className="flow-step-head">
@@ -771,15 +745,15 @@ export default function ClientDetail() {
                 <button
                   className="btn btn-blue"
                   disabled={!canEdit || !!busy || !client.digilocker_done}
-                  title={client.digilocker_done ? 'Start Setu eSign and email the signing link to the client' : 'Complete DigiLocker first'}
+                  title={client.digilocker_done ? 'Open Setu eSign for the client to sign' : 'Complete DigiLocker first'}
                   onClick={handleSaveAndGenerate}
                 >
                   {busy === 'generate' ? 'Starting…' : 'Start Esign flow'}
                 </button>
-                <span className="flow-step-note">After the client signs, the signed PDF is emailed to {client.email || 'their registered email'}.</span>
+                <span className="flow-step-note">Opens Setu eSign; after signing, the signed PDF goes to S3 and {client.email || 'the registered email'}, and the data to the 6 tables.</span>
                 {String(client.current_stage || '').trim().toLowerCase() === 'esigned' && (
                   <>
-                    <button className="btn btn-outline" disabled={!canEdit || !!busy} onClick={runExports} title="Push to CVL KRA, CDSL, NSE, BSE and TechExcel (safe to run again)">
+                    <button className="btn btn-outline" disabled={!canEdit || !!busy} onClick={runExports} title="Push to CVL KRA, CDSL, NSE, BSE, MF and TechExcel (safe to run again)">
                       {busy === 'exports' ? 'Running exports…' : exportResults ? 'Run exports again' : 'Run exports'}
                     </button>
                     {exportResults && (
@@ -1029,10 +1003,10 @@ export default function ClientDetail() {
           )}
           {isPreKycD ? (
             <>
-              The KYC PDF is generated from the saved data and sent to Setu for Aadhaar eSign. The
-              client is emailed the signing link at <b>{client?.email || 'their registered email'}</b>.
-              Once they sign, the signed PDF is emailed to that address automatically
-              (use <b>Check eSign status</b> to update the stage right away).
+              The KYC PDF is generated from the saved data and you are taken to Setu's eSign page,
+              where the client signs with Aadhaar OTP. Setu then returns here: the signed PDF is
+              stored in S3 and emailed to <b>{client?.email || 'their registered email'}</b>, and the
+              data is pushed to CVL KRA, CDSL, NSE, BSE, MF and TechExcel.
             </>
           ) : (
             <>

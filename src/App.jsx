@@ -4,6 +4,8 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
 import ClientDetail from './pages/ClientDetail';
+import DigilockerResult from './pages/DigilockerResult';
+import EsignResult from './pages/EsignResult';
 import Payments from './pages/Payments';
 import KycStatus from './pages/KycStatus';
 import Integrations from './pages/Integrations';
@@ -23,6 +25,8 @@ export default function App() {
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
       <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
+      <Route path="/clients/:id/digilocker-result" element={<ProtectedRoute><DigilockerResult /></ProtectedRoute>} />
+      <Route path="/clients/:id/esign-result" element={<ProtectedRoute><EsignResult /></ProtectedRoute>} />
       <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
       <Route path="/kyc-status" element={<ProtectedRoute><KycStatus /></ProtectedRoute>} />
       <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
