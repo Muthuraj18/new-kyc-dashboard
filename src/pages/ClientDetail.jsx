@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../api';
 import Layout from '../components/Layout';
 import ReasonModal from '../components/ReasonModal';
@@ -210,6 +210,7 @@ const UPLOADABLE = { livephoto: 'IPV live photo', signature: 'Signature', pancar
 
 export default function ClientDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [client, setClient] = useState(null);
   const [details, setDetails] = useState(null);
   const [error, setError] = useState('');
@@ -417,6 +418,13 @@ export default function ClientDetail() {
   // Errors are thrown so the popup shows them and stays open.
   const runSaveAndGenerate = async (reason) => {
     setBusy('generate');
+    // PRE KYC - d: Setu's signing page opens in a new tab (opened now, while this is still the
+    // confirm click, so the browser doesn't block it) and this tab moves to the eSign result
+    // page, which waits for the signature. Where the signing tab ends up afterwards doesn't matter.
+    const signTab = isPreKycD ? window.open('', '_blank') : null;
+    if (signTab) {
+      try { signTab.document.write('<p style="font-family:sans-serif;padding:24px">Preparing the eSign page…</p>'); } catch { /* cross-origin / blocked */ }
+    }
     try {
       // 1. Pending field edits are saved first; the PDF is built from the saved DB values.
       if (pendingCount) await saveFields(reason);
@@ -433,8 +441,11 @@ export default function ClientDetail() {
       } catch (err) {
         throw new Error(err.response?.data?.error || 'PDF regeneration failed');
       }
-      if (isPreKycD && result.redirect && result.signingUrl) {
-        window.location.assign(result.signingUrl);
+      if (isPreKycD && result.signingUrl) {
+        const opened = !!signTab && !signTab.closed;
+        if (opened) signTab.location.href = result.signingUrl;
+        setConfirmGenerate(false);
+        navigate(`/clients/${id}/esign-result?waiting=1`, { state: { signingUrl: result.signingUrl, tabOpened: opened } });
         return;
       }
       setConfirmGenerate(false);
@@ -451,6 +462,9 @@ export default function ClientDetail() {
           || `PDF regenerated. Stage set to "${result.currentStage}". eSign link${result.pdfAttached ? ' and unsigned PDF' : ''} emailed to ${result.emailedTo}.`,
         { error: !!result.emailError, ms: 8000 }
       );
+    } catch (err) {
+      if (signTab && !signTab.closed) signTab.close();
+      throw err;
     } finally {
       setBusy('');
     }

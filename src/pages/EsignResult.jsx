@@ -1,39 +1,73 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import Layout from '../components/Layout';
 import { orNa } from '../utils/format';
 
-// PRE KYC - d: Setu sends the KYC team here after the client signs (/clients/:id/esign-result).
-// The eSign status check makes the onboarding API save the signed PDF to S3
-// (Client/pre-kyc-dubai/esigned_pdf/), email it to the client, and mark the client esigned;
-// the dashboard then pushes the data to CVL KRA, CDSL, NSE, BSE, MF and TechExcel.
+// PRE KYC - d eSign result (/clients/:id/esign-result).
+// Start Esign flow opens Setu's signing page in a new tab and brings this tab here with
+// ?waiting=1: the page checks the eSign status every few seconds until the client has signed.
+// (If Setu itself returns here after signing, the first check already shows the result.)
+// Once signed, the onboarding API saves the signed PDF to S3 and emails it to the client, and
+// the dashboard pushes the data to CVL KRA, CDSL, NSE, BSE, MF and TechExcel.
 const STATUS_TEXT = {
   completed: 'eSign completed',
-  pending: 'Not signed yet',
+  pending: 'Waiting for the client to sign',
   failed: 'eSign failed',
   name_mismatch: 'Signer name does not match',
   not_started: 'eSign not started',
 };
+const POLL_MS = 6000;
+const POLL_FOR_MS = 20 * 60 * 1000; // stop checking automatically after 20 minutes
+const FINAL = ['completed', 'failed', 'name_mismatch'];
 
 export default function EsignResult() {
   const { id } = useParams();
   const [params] = useSearchParams();
-  const [state, setState] = useState({ loading: true }); // { loading } | { error } | { result }
-  const [exportsBusy, setExportsBusy] = useState(false);
-  const started = useRef(false);
-  // Setu adds success=false when the signer cancels or the eSign fails.
+  const { state: navState } = useLocation();
+  const signingUrl = navState?.signingUrl || null;
+  const waitingMode = params.get('waiting') === '1';
   const declined = params.get('success') === 'false';
 
-  const check = async () => {
-    setState({ loading: true });
+  const [state, setState] = useState({ loading: true }); // { loading } | { error } | { result }
+  const [polling, setPolling] = useState(waitingMode);
+  const [exportsBusy, setExportsBusy] = useState(false);
+  const started = useRef(false);
+  const startedAt = useRef(Date.now());
+  const inFlight = useRef(false);
+
+  const check = async ({ quiet = false } = {}) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    if (!quiet) setState({ loading: true });
     try {
       const { data } = await api.post(`/clients/${id}/esign-status`);
       setState({ result: data.data });
+      if (FINAL.includes(data.data.status)) setPolling(false);
     } catch (err) {
-      setState({ error: err.response?.data?.error || 'Could not check the eSign status' });
+      if (!quiet) setState({ error: err.response?.data?.error || 'Could not check the eSign status' });
+    } finally {
+      inFlight.current = false;
     }
   };
+
+  useEffect(() => {
+    if (started.current) return; // once (React StrictMode runs effects twice in dev)
+    started.current = true;
+    check();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Waiting for the signature: check again every few seconds.
+  useEffect(() => {
+    if (!polling) return undefined;
+    const timer = setInterval(() => {
+      if (Date.now() - startedAt.current > POLL_FOR_MS) { setPolling(false); return; }
+      check({ quiet: true });
+    }, POLL_MS);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [polling, id]);
 
   const rerunExports = async () => {
     setExportsBusy(true);
@@ -47,15 +81,9 @@ export default function EsignResult() {
     }
   };
 
-  useEffect(() => {
-    if (started.current) return; // once (React StrictMode runs effects twice in dev)
-    started.current = true;
-    check();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
   const r = state.result;
   const done = r?.status === 'completed';
+  const waiting = r && !FINAL.includes(r.status);
   const exportsList = r?.exports?.results || [];
 
   return (
@@ -72,7 +100,7 @@ export default function EsignResult() {
             <strong>eSign status not available</strong>
             <span>{state.error}</span>
             <div className="dl-result-actions">
-              <button className="btn btn-blue" onClick={check}>Check again</button>
+              <button className="btn btn-blue" onClick={() => check()}>Check again</button>
               <Link className="btn btn-outline" to={`/clients/${id}`}>Back to client</Link>
             </div>
           </div>
@@ -90,14 +118,29 @@ export default function EsignResult() {
               </div>
             </div>
 
-            <p className="esign-result-msg">{r.message}</p>
+            {waiting ? (
+              <div className="esign-waiting">
+                {polling && <span className="esign-spinner" aria-hidden="true" />}
+                <div>
+                  <strong>{polling ? 'Waiting for the signature…' : 'Not signed yet.'}</strong>
+                  <span>
+                    {signingUrl
+                      ? 'Setu eSign is open in another tab. The client signs there with Aadhaar OTP; this page updates by itself once they have signed. You can close the other tab afterwards.'
+                      : 'Once the client has signed on Setu, this page shows the result.'}
+                  </span>
+                  {!polling && <span>Click Check again after the client has signed.</span>}
+                </div>
+              </div>
+            ) : (
+              <p className="esign-result-msg">{r.message}</p>
+            )}
             {!done && declined && <p className="esign-result-msg">Setu reported that the eSign was cancelled or failed.</p>}
 
             {done && (
               <>
                 <div className="dl-result-xml ok">
                   <strong>Signed PDF</strong>
-                  <span>Stored in S3 (Client/pre-kyc-dubai/esigned_pdf/) and emailed to {orNa(r.client?.email)}.</span>
+                  <span>Stored in S3 and emailed to {orNa(r.client?.email)}.</span>
                 </div>
 
                 <h3 className="esign-result-h3">Data pushed to</h3>
@@ -117,7 +160,10 @@ export default function EsignResult() {
             )}
 
             <div className="dl-result-actions">
-              {!done && <button className="btn btn-blue" onClick={check}>Check again</button>}
+              {waiting && signingUrl && (
+                <a className="btn btn-blue" href={signingUrl} target="_blank" rel="noreferrer">Open Setu eSign page</a>
+              )}
+              {waiting && <button className="btn btn-outline" onClick={() => check()}>Check again</button>}
               {done && exportsList.some((x) => !x.ok) && (
                 <button className="btn btn-blue" disabled={exportsBusy} onClick={rerunExports}>
                   {exportsBusy ? 'Running exports…' : 'Retry failed exports'}
@@ -128,7 +174,7 @@ export default function EsignResult() {
                   {exportsBusy ? 'Running exports…' : 'Run exports'}
                 </button>
               )}
-              <Link className="btn btn-outline" to={`/clients/${id}`}>Continue to client</Link>
+              <Link className="btn btn-outline" to={`/clients/${id}`}>{done ? 'Continue to client' : 'Back to client'}</Link>
             </div>
           </>
         )}
