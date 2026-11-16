@@ -498,6 +498,31 @@ export default function ClientDetail() {
 
   // 1b. Fetching the Aadhaar data + XML happens on the DigiLocker result page (DigilockerResult.jsx).
 
+  // 3. Start eSign: one click, a fresh Setu eSign request - no reason / regeneration popup.
+  // Setu's signing page opens in a new tab (opened now, during the click, so it isn't blocked);
+  // this tab goes to the eSign result page, which waits for the signature.
+  const startEsign = async () => {
+    if (busy) return;
+    const signTab = window.open('', '_blank');
+    if (signTab) {
+      try { signTab.document.write('<p style="font-family:sans-serif;padding:24px">Opening Setu eSign…</p>'); } catch { /* ignore */ }
+    }
+    setBusy('esign');
+    try {
+      const returnUrl = `${window.location.origin}/clients/${id}/esign-result`;
+      const { data } = await api.post(`/clients/${id}/esign/start`, { returnUrl });
+      const { signingUrl } = data.data;
+      const opened = !!signTab && !signTab.closed;
+      if (opened) signTab.location.href = signingUrl;
+      navigate(`/clients/${id}/esign-result?waiting=1`, { state: { signingUrl, tabOpened: opened } });
+    } catch (err) {
+      if (signTab && !signTab.closed) signTab.close();
+      showNotice(err.response?.data?.error || 'Could not start eSign', { error: true });
+    } finally {
+      setBusy('');
+    }
+  };
+
   // 4. After eSign: CVL KRA -> CDSL -> NSE -> BSE -> MF -> TechExcel (also run automatically by the
   // eSign status check when it first sees the client as signed).
   const [exportResults, setExportResults] = useState(null); // [{ key, label, ok, message }]
@@ -530,7 +555,17 @@ export default function ClientDetail() {
         return { ...d, generatedpdf: { type: 'pdf', url, fileName } };
       });
       setActiveDoc('generatedpdf');
-      showNotice('PDF generated - shown in the preview.');
+      // X-Pdf-Images: "photo=1;signature=1;pan_card=0" - which client images are in the PDF.
+      const LABEL = { photo: 'live photo', signature: 'signature', pan_card: 'PAN card' };
+      const missing = String(response.headers['x-pdf-images'] || '')
+        .split(';').map((p) => p.split('=')).filter(([k, v]) => k && v === '0').map(([k]) => LABEL[k] || k);
+      setDocs((d) => ({ ...d, unsignedpdf: undefined }));
+      showNotice(
+        missing.length
+          ? `PDF generated and saved to S3, but without the ${missing.join(', ')} (not found in S3).`
+          : 'PDF generated with photo, signature and PAN card, and saved to S3.',
+        { error: missing.length > 0, ms: 8000 }
+      );
     } catch (err) {
       let message = 'Could not generate the PDF';
       try { message = JSON.parse(await err.response.data.text()).error || message; } catch { /* not JSON */ }
@@ -760,9 +795,9 @@ export default function ClientDetail() {
                   className="btn btn-blue"
                   disabled={!canEdit || !!busy || !client.digilocker_done}
                   title={client.digilocker_done ? 'Open Setu eSign for the client to sign' : 'Complete DigiLocker first'}
-                  onClick={handleSaveAndGenerate}
+                  onClick={startEsign}
                 >
-                  {busy === 'generate' ? 'Starting…' : 'Start Esign flow'}
+                  {busy === 'esign' ? 'Opening Setu eSign…' : 'Start Esign flow'}
                 </button>
                 <span className="flow-step-note">Opens Setu eSign; after signing, the signed PDF goes to S3 and {client.email || 'the registered email'}, and the data to the 6 tables.</span>
                 {String(client.current_stage || '').trim().toLowerCase() === 'esigned' && (
