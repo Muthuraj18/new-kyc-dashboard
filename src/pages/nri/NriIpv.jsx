@@ -87,8 +87,8 @@ export default function NriIpv() {
           onChange={(e) => setSearch(e.target.value)}
         />
         <select value={filters.type} onChange={(e) => update({ type: e.target.value })}>
-          <option value="">NRE + NRO</option>
-          {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label} only</option>)}
+          <option value="">NRI</option>
+          {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
         {result.statuses?.length > 0 && (
           <select value={filters.status} onChange={(e) => update({ status: e.target.value })}>

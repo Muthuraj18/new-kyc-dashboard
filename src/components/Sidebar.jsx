@@ -71,13 +71,14 @@ function NavItems({ items }) {
   )));
 }
 
-// Section header (KYC - PRE KYC / NRE - NRO): the open section shows its menu below it.
-function SectionHeader({ label, active, onClick }) {
+// Section header (KYC - PRE KYC / NRE - NRO). `active`: the section you are in (highlighted);
+// `open`: its menu is shown below it.
+function SectionHeader({ label, active, open, onClick }) {
   return (
     <li>
-      <button type="button" className={`nav-section${active ? ' active' : ''}`} aria-expanded={active} onClick={onClick}>
+      <button type="button" className={`nav-section${active ? ' active' : ''}`} aria-expanded={open} onClick={onClick}>
         <span>{label}</span>
-        <CaretDownIcon className={`ui-icon nav-caret${active ? ' open' : ''}`} />
+        <CaretDownIcon className={`ui-icon nav-caret${open ? ' open' : ''}`} />
       </button>
     </li>
   );
@@ -129,6 +130,12 @@ export default function Sidebar() {
   // Users without NRE - NRO access see the KYC menu exactly as before (no section headers).
   const hasNri = can(user, 'nri');
   const inNri = pathname.startsWith('/nri');
+  // The current section's menu can be folded by clicking its header again; it opens again
+  // on the next click (or when moving to the other section).
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => { setCollapsed(false); }, [inNri]);
+  const kycOpen = !hasNri || (!inNri && !collapsed);
+  const nriOpen = hasNri && ((inNri && !collapsed) || items.length === 0);
 
   return (
     <aside className="sidebar">
@@ -144,18 +151,26 @@ export default function Sidebar() {
           <SectionHeader
             label="KYC - PRE KYC"
             active={!inNri}
-            onClick={() => { if (inNri) navigate(items.find((i) => i.to === '/dashboard')?.to || items[0].to); }}
+            open={kycOpen}
+            onClick={() => {
+              if (inNri) navigate(items.find((i) => i.to === '/dashboard')?.to || items[0].to);
+              else setCollapsed((c) => !c);
+            }}
           />
         )}
-        {(!hasNri || !inNri) && <NavItems items={items} />}
+        {kycOpen && <NavItems items={items} />}
         {hasNri && (
           <SectionHeader
             label="NRE - NRO"
             active={inNri}
-            onClick={() => { if (!inNri) navigate('/nri/dashboard'); }}
+            open={nriOpen}
+            onClick={() => {
+              if (!inNri) navigate('/nri/dashboard');
+              else setCollapsed((c) => !c);
+            }}
           />
         )}
-        {hasNri && (inNri || items.length === 0) && <NavItems items={NRI_ITEMS} />}
+        {nriOpen && <NavItems items={NRI_ITEMS} />}
       </ul>
     </aside>
   );

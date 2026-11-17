@@ -75,7 +75,7 @@ function AccountSection({ type, label, data, navigate }) {
                 {data?.today !== undefined && <StatCard label="Today" value={data.today} />}
                 {data?.last7 !== undefined && <StatCard label="Last 7 days" value={data.last7} />}
               </div>
-              {data?.status && <SubTitle>Application status</SubTitle>}
+              {data?.status?.values?.length > 0 && <SubTitle>Application status</SubTitle>}
               <Breakdown data={data?.status} onPick={(v) => open({ status: v })} />
               {data?.stages && (
                 <>
@@ -129,7 +129,7 @@ export default function NriDashboard() {
   const totalApps = num(nre) !== null && num(nro) !== null ? num(nre) + num(nro) : null;
 
   return (
-    <Layout title="NRE - NRO Dashboard">
+    <Layout title="NRI Dashboard">
       {error && <ErrorCard text={error} />}
 
       <div style={gridStyle}>
@@ -166,7 +166,7 @@ export default function NriDashboard() {
                   {ipv?.today !== undefined && <StatCard label="Today" value={ipv.today} />}
                   {ipv?.last7 !== undefined && <StatCard label="Last 7 days" value={ipv.last7} />}
                 </div>
-                {ipv?.status && <SubTitle>Session status</SubTitle>}
+                {ipv?.status?.values?.length > 0 && <SubTitle>Session status</SubTitle>}
                 <Breakdown data={ipv?.status} onPick={(v) => navigate(`/nri/ipv?${new URLSearchParams({ status: v })}`)} />
               </>
             )}

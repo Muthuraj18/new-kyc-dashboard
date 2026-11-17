@@ -4,8 +4,9 @@ import api from '../../api';
 import Layout from '../../components/Layout';
 import CopyableCell from '../../components/CopyableCell';
 import StatusPill from '../../components/StatusPill';
+import ColumnPicker from '../../components/ColumnPicker';
 import { formatDate, formatLabel, orNa } from '../../utils/format';
-import { ACCOUNT_TYPES, cleanParams, downloadBlob, typeLabel } from '../../utils/nri';
+import { ACCOUNT_TYPES, cleanParams, downloadBlob, fieldLabel, formatValue, groupColumns, typeLabel } from '../../utils/nri';
 
 const PAGE_SIZE = 25;
 const FILTER_KEYS = ['search', 'type', 'status', 'stage', 'dateFrom', 'dateTo'];
@@ -27,8 +28,24 @@ const COLUMNS = [
   { key: 'boid', label: 'BOID' },
   { key: 'rm', label: 'RM' },
 ];
-// Always shown even when empty on the page.
-const ALWAYS = new Set(['created_at', 'account_type', 'application_id', 'client_name', 'pan_number', 'stage', 'status']);
+// Columns dropdown: the standard columns above, plus any nre / nro application column
+// ("c.<column>", grouped like the detail page). Choices are remembered per browser.
+const DEFAULT_COLUMNS = COLUMNS.map((c) => c.key);
+const COLUMNS_STORAGE_KEY = 'kyc_nri_clients_columns';
+const EXTRA_PREFIX = 'c.';
+
+function loadColumns() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(COLUMNS_STORAGE_KEY) || 'null');
+    if (Array.isArray(saved)) {
+      const known = new Set(DEFAULT_COLUMNS);
+      // Extra columns are kept and checked once the column list loads.
+      return new Set(saved.filter((k) => known.has(k) || String(k).startsWith(EXTRA_PREFIX)));
+    }
+  } catch { /* unreadable or blocked storage: use the defaults */ }
+  return new Set(DEFAULT_COLUMNS);
+}
+
 // Stage tag colours: completed stages green, waiting-on-client stages amber.
 const STAGE_TONE = { esigned: 'done', submitted: 'done', payment: 'client', live_photo: 'client', yet_to_esign: 'client', yet_to_submit: 'client' };
 
@@ -47,6 +64,37 @@ export default function NriApplications() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
+
+  const [visibleColumns, setVisibleColumns] = useState(loadColumns);
+  const changeColumns = (next) => {
+    setVisibleColumns(next);
+    try { localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify([...next])); } catch { /* storage blocked: keep for this visit only */ }
+  };
+  const [extraGroups, setExtraGroups] = useState([]); // [{ key, label, columns: [{ key, label, name, type }] }]
+  const [maxExtra, setMaxExtra] = useState(300);
+  const extraByKey = useMemo(() => new Map(extraGroups.flatMap((g) => g.columns.map((c) => [c.key, c]))), [extraGroups]);
+  // Chosen extra columns, in dropdown order, as the "cols" request value (column names).
+  const extraCols = useMemo(
+    () => extraGroups.flatMap((g) => g.columns).filter((c) => visibleColumns.has(c.key)).map((c) => c.name).join(','),
+    [extraGroups, visibleColumns]
+  );
+
+  useEffect(() => {
+    api.get('/nri/applications/columns')
+      .then(({ data }) => {
+        const groups = groupColumns(data.data.columns).map((g) => ({
+          key: g.label,
+          label: g.label,
+          columns: g.columns.map((c) => ({ key: `${EXTRA_PREFIX}${c.name}`, label: fieldLabel(c.name), name: c.name, type: c.type })),
+        }));
+        setExtraGroups(groups);
+        setMaxExtra(data.data.maxExtra || 300);
+        // Drop saved extra columns that no longer exist.
+        const known = new Set(groups.flatMap((g) => g.columns.map((c) => c.key)));
+        setVisibleColumns((v) => new Set([...v].filter((k) => !k.startsWith(EXTRA_PREFIX) || known.has(k))));
+      })
+      .catch(() => {});
+  }, []);
 
   const update = (changes) => {
     const next = cleanParams({ ...filters, page: '', ...changes });
@@ -71,12 +119,12 @@ export default function NriApplications() {
   useEffect(() => {
     setLoading(true);
     setError('');
-    api.get('/nri/applications', { params: cleanParams({ ...filters, page, pageSize: PAGE_SIZE }) })
+    api.get('/nri/applications', { params: cleanParams({ ...filters, page, pageSize: PAGE_SIZE, cols: extraCols }) })
       .then(({ data }) => { setRows(data.data); setTotal(data.total); })
       .catch((err) => setError(err.response?.data?.error || 'Failed to load applications'))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey]);
+  }, [queryKey, extraCols]);
 
   // Recount only when a filter other than the stage (or page) changes.
   const countKey = JSON.stringify(cleanParams({ ...filters, stage: '' }));
@@ -90,7 +138,7 @@ export default function NriApplications() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const response = await api.get('/nri/applications/export', { params: cleanParams(filters), responseType: 'blob' });
+      const response = await api.get('/nri/applications/export', { params: cleanParams({ ...filters, cols: extraCols }), responseType: 'blob' });
       await downloadBlob(response, `nre-nro-applications-${Date.now()}.csv`);
     } catch {
       alert('Export failed');
@@ -99,11 +147,11 @@ export default function NriApplications() {
     }
   };
 
-  // Hide columns the tables don't have (empty on every row of this page).
-  const shown = useMemo(
-    () => COLUMNS.filter((c) => ALWAYS.has(c.key) || rows.some((r) => r[c.key] !== null && r[c.key] !== '')),
-    [rows]
-  );
+  // Standard columns first, then the chosen extra table columns.
+  const shown = [
+    ...COLUMNS.filter((c) => visibleColumns.has(c.key)),
+    ...extraGroups.flatMap((g) => g.columns.filter((c) => visibleColumns.has(c.key))),
+  ];
 
   function renderCell(key, r) {
     switch (key) {
@@ -122,7 +170,14 @@ export default function NriApplications() {
       case 'payment_status':
       case 'esign_status':
         return r[key] ? <StatusPill value={formatLabel(r[key])} /> : <span className="na">N/A</span>;
-      default: return orNa(r[key]);
+      default: {
+        const extra = extraByKey.get(key);
+        if (!extra) return orNa(r[key]);
+        const raw = r[`x:${extra.name}`];
+        const v = formatValue(extra.type === 'boolean' && raw != null ? raw === 'true' : raw, extra.type);
+        if (v.na) return <span className="na">N/A</span>;
+        return <span className="extra-cell" title={v.text}>{v.text}</span>;
+      }
     }
   }
 
@@ -141,8 +196,8 @@ export default function NriApplications() {
           onChange={(e) => setSearch(e.target.value)}
         />
         <select value={filters.type} onChange={(e) => update({ type: e.target.value })}>
-          <option value="">NRE + NRO</option>
-          {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label} only</option>)}
+          <option value="">NRI</option>
+          {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
         {options.statuses.length > 0 && (
           <select value={filters.status} onChange={(e) => update({ status: e.target.value })}>
@@ -161,6 +216,14 @@ export default function NriApplications() {
         </select>
         <input type="date" value={filters.dateFrom} onChange={(e) => update({ dateFrom: e.target.value })} title="From date" />
         <input type="date" value={filters.dateTo} onChange={(e) => update({ dateTo: e.target.value })} title="To date" />
+        <ColumnPicker
+          columns={COLUMNS}
+          groups={extraGroups}
+          maxExtra={maxExtra}
+          visible={visibleColumns}
+          onChange={changeColumns}
+          defaults={DEFAULT_COLUMNS}
+        />
         <button className="btn btn-primary" onClick={handleExport} disabled={exporting}>
           {exporting ? 'Exporting…' : 'Export ↓'}
         </button>
