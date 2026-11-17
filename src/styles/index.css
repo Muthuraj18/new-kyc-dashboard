@@ -2916,3 +2916,26 @@ table.data-table--compact {
 .nri-attempt .module-long pre {
   max-height: 320px;
 }
+
+/* NRI BOID Numbers */
+.nri-low-banner {
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  border: 2px solid var(--danger);
+  border-left-width: 8px;
+  background: var(--card-bg);
+  font-size: 14px;
+}
+
+.nri-low-title {
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--danger);
+  margin-bottom: 6px;
+}
+
+.nri-boid-upload {
+  margin-top: 28px;
+  max-width: 800px;
+}

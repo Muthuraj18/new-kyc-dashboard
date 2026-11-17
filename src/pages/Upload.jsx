@@ -58,7 +58,9 @@ function extractBoidRows(sheet) {
   return rows;
 }
 
-function BoidUpload() {
+// Also used by NRE - NRO > BOID Numbers with endpoint '/nri/boid/upload' (nre_nro.boid_numbers).
+// `onUploaded(result)`: called after a successful upload (e.g. to refresh stock counts).
+export function BoidUpload({ endpoint = '/upload/boid', onUploaded } = {}) {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -87,9 +89,10 @@ function BoidUpload() {
     try {
       const rows = extractBoidRows(await readSheet(file));
       if (!rows.length) throw new Error('No BOID rows found in the file.');
-      const res = await api.post('/upload/boid', { fileName: file.name, rows });
+      const res = await api.post(endpoint, { fileName: file.name, rows });
       setResult(res.data);
       clearFile();
+      if (onUploaded) onUploaded(res.data);
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Upload failed');
     } finally {
