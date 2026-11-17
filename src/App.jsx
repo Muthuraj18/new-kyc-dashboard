@@ -16,6 +16,13 @@ import Upload from './pages/Upload';
 import IntegrationTable from './pages/IntegrationTable';
 import KycLogs from './pages/KycLogs';
 import NeedAttention from './pages/NeedAttention';
+// NRE - NRO section
+import NriDashboard from './pages/nri/NriDashboard';
+import NriApplications from './pages/nri/NriApplications';
+import NriApplicationDetail from './pages/nri/NriApplicationDetail';
+import NriIpv from './pages/nri/NriIpv';
+import NriIpvDetail from './pages/nri/NriIpvDetail';
+import NriBoid from './pages/nri/NriBoid';
 
 export default function App() {
   return (
@@ -39,6 +46,15 @@ export default function App() {
       <Route path="/need-attention" element={<ProtectedRoute><NeedAttention /></ProtectedRoute>} />
       <Route path="/tables" element={<Navigate to="/tables/cvlkra" replace />} />
       <Route path="/tables/:table" element={<ProtectedRoute><IntegrationTable /></ProtectedRoute>} />
+
+      {/* NRE - NRO */}
+      <Route path="/nri" element={<Navigate to="/nri/dashboard" replace />} />
+      <Route path="/nri/dashboard" element={<ProtectedRoute><NriDashboard /></ProtectedRoute>} />
+      <Route path="/nri/applications" element={<ProtectedRoute><NriApplications /></ProtectedRoute>} />
+      <Route path="/nri/applications/:type/:id" element={<ProtectedRoute><NriApplicationDetail /></ProtectedRoute>} />
+      <Route path="/nri/ipv" element={<ProtectedRoute><NriIpv /></ProtectedRoute>} />
+      <Route path="/nri/ipv/:id" element={<ProtectedRoute><NriIpvDetail /></ProtectedRoute>} />
+      <Route path="/nri/boid" element={<ProtectedRoute><NriBoid /></ProtectedRoute>} />
 
       <Route path="/" element={<Navigate to="/clients" replace />} />
       <Route path="*" element={<Navigate to="/clients" replace />} />
