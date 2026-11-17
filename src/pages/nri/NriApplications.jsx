@@ -20,7 +20,7 @@ const COLUMNS = [
   { key: 'email', label: 'Email ID' },
   { key: 'mobile_number', label: 'Mobile Number' },
   { key: 'country', label: 'Country of Residence' },
-  { key: 'current_stage', label: 'Current Step' },
+  { key: 'stage', label: 'Stage' },
   { key: 'status', label: 'Status' },
   { key: 'payment_status', label: 'Payment' },
   { key: 'esign_status', label: 'eSign' },
@@ -28,7 +28,9 @@ const COLUMNS = [
   { key: 'rm', label: 'RM' },
 ];
 // Always shown even when empty on the page.
-const ALWAYS = new Set(['created_at', 'account_type', 'application_id', 'client_name', 'pan_number', 'current_stage', 'status']);
+const ALWAYS = new Set(['created_at', 'account_type', 'application_id', 'client_name', 'pan_number', 'stage', 'status']);
+// Stage tag colours: completed stages green, waiting-on-client stages amber.
+const STAGE_TONE = { esigned: 'done', submitted: 'done', payment: 'client', live_photo: 'client', yet_to_esign: 'client', yet_to_submit: 'client' };
 
 export default function NriApplications() {
   const navigate = useNavigate();
@@ -38,6 +40,8 @@ export default function NriApplications() {
   const page = Math.max(parseInt(searchParams.get('page'), 10) || 1, 1);
   const [search, setSearch] = useState(filters.search);
   const [options, setOptions] = useState({ statuses: [], stages: [] });
+  // Count per Application Stage option, with the other filters applied.
+  const [stageCounts, setStageCounts] = useState({});
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -74,6 +78,15 @@ export default function NriApplications() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryKey]);
 
+  // Recount only when a filter other than the stage (or page) changes.
+  const countKey = JSON.stringify(cleanParams({ ...filters, stage: '' }));
+  useEffect(() => {
+    api.get('/nri/applications/stage-counts', { params: JSON.parse(countKey) })
+      .then(({ data }) => setStageCounts({ ...Object.fromEntries(data.stages.map((s) => [s.value, s.count])), all: data.total }))
+      .catch(() => setStageCounts({}));
+  }, [countKey]);
+  const countText = (key) => (stageCounts[key] === undefined ? '' : ` (${stageCounts[key]})`);
+
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -101,7 +114,10 @@ export default function NriApplications() {
       case 'mobile_number':
       case 'boid':
         return <CopyableCell value={r[key]} />;
-      case 'current_stage': return formatLabel(r.current_stage);
+      case 'stage':
+        return r.stage_label
+          ? <span className={`nri-stage nri-stage--${STAGE_TONE[r.stage_key] || 'rm'}`} title={`current_step: ${r.current_stage || 'N/A'}`}>{r.stage_label}</span>
+          : <span className="na">N/A</span>;
       case 'status': return <StatusPill value={r.status} />;
       case 'payment_status':
       case 'esign_status':
@@ -115,7 +131,7 @@ export default function NriApplications() {
     : `Showing ${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, total)} of ${total}`;
 
   return (
-    <Layout title="NRE - NRO Applications">
+    <Layout title="NRI Dashboard">
       <div className="filters-bar">
         <input
           className="search-input"
@@ -124,7 +140,7 @@ export default function NriApplications() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select value={filters.type} onChange={(e) => update({ type: e.target.value, status: '', stage: '' })}>
+        <select value={filters.type} onChange={(e) => update({ type: e.target.value })}>
           <option value="">NRE + NRO</option>
           {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label} only</option>)}
         </select>
@@ -134,12 +150,15 @@ export default function NriApplications() {
             {options.statuses.map((v) => <option key={v} value={v}>{formatLabel(v)}</option>)}
           </select>
         )}
-        {options.stages.length > 0 && (
-          <select value={filters.stage} onChange={(e) => update({ stage: e.target.value })}>
-            <option value="">All Steps</option>
-            {options.stages.map((v) => <option key={v} value={v}>{formatLabel(v)}</option>)}
-          </select>
-        )}
+        {/* Application Stage: worked out on the server from the flow's columns (see backend utils/nriStage.js). */}
+        <select
+          value={filters.stage}
+          onChange={(e) => update({ stage: e.target.value === 'all' ? '' : e.target.value })}
+          title="The step each application is waiting on"
+        >
+          <option value="">All Stages{countText('all')}</option>
+          {options.stages.map((s) => <option key={s.value} value={s.value}>{s.label}{countText(s.value)}</option>)}
+        </select>
         <input type="date" value={filters.dateFrom} onChange={(e) => update({ dateFrom: e.target.value })} title="From date" />
         <input type="date" value={filters.dateTo} onChange={(e) => update({ dateTo: e.target.value })} title="To date" />
         <button className="btn btn-primary" onClick={handleExport} disabled={exporting}>

@@ -77,8 +77,22 @@ function AccountSection({ type, label, data, navigate }) {
               </div>
               {data?.status && <SubTitle>Application status</SubTitle>}
               <Breakdown data={data?.status} onPick={(v) => open({ status: v })} />
-              {data?.stage && <SubTitle>Current step</SubTitle>}
-              <Breakdown data={data?.stage} onPick={(v) => open({ stage: v })} />
+              {data?.stages && (
+                <>
+                  <SubTitle>Application stage</SubTitle>
+                  <div style={{ ...gridStyle, marginTop: 16 }}>
+                    {data.stages.map((s) => (
+                      <StatCard
+                        key={s.value}
+                        label={s.label}
+                        value={s.count}
+                        color={s.count && (s.value === 'esigned' || s.value === 'submitted') ? 'var(--success)' : undefined}
+                        onClick={s.count ? () => open({ stage: s.value }) : undefined}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
     </Section>

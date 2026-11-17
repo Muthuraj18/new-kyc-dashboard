@@ -35,7 +35,7 @@ export default function NriApplicationDetail() {
     <Layout title="NRE - NRO Client Details">
       <div className="detail-back">
         <Link to="/nri/applications" onClick={(e) => { if (window.history.length > 1) { e.preventDefault(); navigate(-1); } }}>
-          &larr; Back to Applications
+          &larr; Back to Clients
         </Link>
       </div>
 
@@ -51,6 +51,7 @@ export default function NriApplicationDetail() {
               <div><span>Client Name</span><strong>{s ? orNa(s.client_name) : '…'}</strong></div>
               <div><span>PAN</span><strong>{s ? orNa(s.pan_number) : '…'}</strong></div>
               <div><span>Client Code</span><strong>{s ? orNa(s.client_code) : '…'}</strong></div>
+              {s?.stage_label && <div><span>Stage</span><strong>{s.stage_label}</strong></div>}
               {s?.current_stage && <div><span>Current Step</span><strong>{formatLabel(s.current_stage)}</strong></div>}
               {s?.status && <div><span>Status</span><strong><StatusPill value={s.status} /></strong></div>}
               {s?.payment_status && <div><span>Payment</span><strong>{formatLabel(s.payment_status)}</strong></div>}

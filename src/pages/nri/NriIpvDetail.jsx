@@ -68,14 +68,14 @@ export default function NriIpvDetail() {
                   <div className="state-msg">No NRE / NRO application found for this PAN.</div>
                 ) : (
                   <table className="data-table">
-                    <thead><tr><th>Account Type</th><th>Unique ID</th><th>Client Name</th><th>Current Step</th><th>Status</th><th /></tr></thead>
+                    <thead><tr><th>Account Type</th><th>Unique ID</th><th>Client Name</th><th>Stage</th><th>Status</th><th /></tr></thead>
                     <tbody>
                       {data.applications.map((a) => (
                         <tr key={`${a.account_type}-${a.id}`}>
                           <td><span className={`nri-type nri-type--${a.account_type}`}>{typeLabel(a.account_type)}</span></td>
                           <td>{orNa(a.application_id || a.id)}</td>
                           <td>{orNa(a.client_name)}</td>
-                          <td>{formatLabel(a.current_stage)}</td>
+                          <td>{a.stage_label || formatLabel(a.current_stage)}</td>
                           <td><StatusPill value={a.status} /></td>
                           <td>{a.id && <Link to={`/nri/applications/${a.account_type}/${encodeURIComponent(a.id)}`}>Open &rarr;</Link>}</td>
                         </tr>

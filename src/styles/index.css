@@ -2726,3 +2726,29 @@ table.data-table--compact {
 .nri-photo + .detail-summary {
   flex: 1;
 }
+
+/* NRE - NRO Application Stage tag */
+.nri-stage {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+}
+
+.nri-stage--client {
+  background: rgba(217, 154, 6, 0.15);
+  color: #b07c00;
+}
+
+.nri-stage--done {
+  background: rgba(28, 170, 107, 0.14);
+  color: var(--success);
+}
+
+[data-theme='dark'] .nri-stage { color: #7aa5ff; }
+[data-theme='dark'] .nri-stage--client { color: #f0bf4c; }
+[data-theme='dark'] .nri-stage--done { color: var(--success); }
