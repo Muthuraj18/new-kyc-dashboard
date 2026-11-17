@@ -23,6 +23,7 @@ import NriApplicationDetail from './pages/nri/NriApplicationDetail';
 import NriIpv from './pages/nri/NriIpv';
 import NriIpvDetail from './pages/nri/NriIpvDetail';
 import NriBoid from './pages/nri/NriBoid';
+import NriPayments from './pages/nri/NriPayments';
 
 export default function App() {
   return (
@@ -55,6 +56,7 @@ export default function App() {
       <Route path="/nri/ipv" element={<ProtectedRoute><NriIpv /></ProtectedRoute>} />
       <Route path="/nri/ipv/:id" element={<ProtectedRoute><NriIpvDetail /></ProtectedRoute>} />
       <Route path="/nri/boid" element={<ProtectedRoute><NriBoid /></ProtectedRoute>} />
+      <Route path="/nri/payments" element={<ProtectedRoute><NriPayments /></ProtectedRoute>} />
 
       <Route path="/" element={<Navigate to="/clients" replace />} />
       <Route path="*" element={<Navigate to="/clients" replace />} />

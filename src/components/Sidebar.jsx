@@ -54,6 +54,7 @@ const NAV_ITEMS = [
 const NRI_ITEMS = [
   { to: '/nri/dashboard', label: 'Dashboard', Icon: DashboardIcon },
   { to: '/nri/applications', label: 'Clients', Icon: ClientsIcon },
+  { to: '/nri/payments', label: 'Payments', Icon: PaymentsIcon },
   { to: '/nri/ipv', label: 'IPV Verification', Icon: VideoIcon },
   { to: '/nri/boid', label: 'BOID Numbers', Icon: TableIcon },
 ];
