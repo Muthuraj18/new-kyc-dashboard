@@ -35,7 +35,7 @@ export default function NriApplicationDetail() {
     <Layout title="NRE - NRO Client Details">
       <div className="detail-back">
         <Link to="/nri/applications" onClick={(e) => { if (window.history.length > 1) { e.preventDefault(); navigate(-1); } }}>
-          &larr; Back to Applications
+          &larr; Back to Clients
         </Link>
       </div>
 

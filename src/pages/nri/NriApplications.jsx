@@ -131,7 +131,7 @@ export default function NriApplications() {
     : `Showing ${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, total)} of ${total}`;
 
   return (
-    <Layout title="NRE - NRO Applications">
+    <Layout title="NRI Dashboard">
       <div className="filters-bar">
         <input
           className="search-input"
