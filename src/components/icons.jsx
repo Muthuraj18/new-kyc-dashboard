@@ -184,6 +184,13 @@ export const LogsIcon = (props) => (
   </svg>
 );
 
+export const VideoIcon = (props) => (
+  <svg viewBox="0 0 24 24" className="nav-icon" {...base} {...props}>
+    <rect x="3" y="6" width="12.5" height="12" rx="2" />
+    <path d="M15.5 10.5 21 7.5v9l-5.5-3" />
+  </svg>
+);
+
 export const AlertIcon = (props) => (
   <svg viewBox="0 0 24 24" className="nav-icon" {...base} {...props}>
     <path d="M12 3.5 21 19.5H3z" />

@@ -2472,3 +2472,257 @@ table.data-table--compact {
   .dlr-hero { flex-direction: column; align-items: flex-start; }
   .dlr-boxes { grid-template-columns: 1fr 1fr; }
 }
+
+/* ---------- NRE - NRO section ---------- */
+/* Sidebar section headers: KYC - PRE KYC / NRE - NRO */
+.nav-section {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-section:hover {
+  background: var(--bg);
+}
+
+.nav-section.active {
+  border-color: var(--accent);
+  color: var(--active-text);
+  background: var(--active-bg);
+}
+
+.nri-card-link {
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.nri-card-link:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.nri-section-note {
+  margin-left: 10px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.nri-type {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: var(--active-bg);
+  color: var(--active-text);
+}
+
+.nri-type--nre {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+}
+
+.nri-type--nro {
+  background: rgba(217, 154, 6, 0.15);
+  color: #b07c00;
+}
+
+[data-theme='dark'] .nri-type--nre { color: #7aa5ff; }
+[data-theme='dark'] .nri-type--nro { color: #f0bf4c; }
+
+.nri-count {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.nri-count.has {
+  background: rgba(28, 170, 107, 0.14);
+  color: var(--success);
+}
+
+.nri-field-search {
+  width: 100%;
+  margin: 4px 0 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+.nri-doc-source + .nri-doc-source {
+  margin-top: 10px;
+  border-top: 2px solid var(--border);
+  padding-top: 6px;
+}
+
+.nri-doc-source-title {
+  padding: 8px 12px 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.nri-doc-empty {
+  color: var(--muted);
+}
+
+.nri-error {
+  color: var(--danger);
+}
+
+.nri-video {
+  max-width: 100%;
+  max-height: 100%;
+  background: #000;
+  border-radius: 8px;
+}
+
+.nri-toolbar-link {
+  display: inline-flex;
+  padding: 6px;
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.nri-toolbar-link .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.nri-file-strip {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  max-width: calc(100% - 330px);
+  overflow-x: auto;
+  padding: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.nri-file-chip {
+  flex-shrink: 0;
+  height: 44px;
+  min-width: 44px;
+  max-width: 140px;
+  padding: 2px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.nri-file-chip img {
+  height: 100%;
+  width: auto;
+  display: block;
+  border-radius: 4px;
+}
+
+.nri-file-chip span {
+  display: block;
+  padding: 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 36px;
+}
+
+.nri-file-chip.active {
+  border-color: var(--accent);
+}
+
+.nri-linked {
+  margin-top: 18px;
+  display: grid;
+  gap: 16px;
+}
+
+.nri-linked-title {
+  padding: 14px 18px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.nri-table-scroll {
+  overflow-x: auto;
+}
+
+@media (max-width: 700px) {
+  .nri-file-strip {
+    max-width: calc(100% - 20px);
+    bottom: 70px;
+  }
+}
+
+.nri-photo {
+  width: 72px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  align-self: center;
+}
+
+.nri-subtitle {
+  margin: 16px 0 -4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.nri-remarks {
+  flex-basis: 100%;
+  font-size: 13.5px;
+}
+
+.nri-remarks span {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.nri-remarks p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}
+
+.nri-photo + .detail-summary {
+  flex: 1;
+}

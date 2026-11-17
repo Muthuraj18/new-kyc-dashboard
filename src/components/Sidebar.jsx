@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   DashboardIcon,
   ClientsIcon,
@@ -14,6 +14,7 @@ import {
   LogsIcon,
   AlertIcon,
   CaretDownIcon,
+  VideoIcon,
 } from './icons';
 import useFeatures from '../hooks/useFeatures';
 import { useAuth } from '../context/AuthContext';
@@ -48,6 +49,39 @@ const NAV_ITEMS = [
   { to: '/audit-logs', label: 'Audit Logs', Icon: AuditLogsIcon, feature: 'auditLogs', module: 'audit_logs' },
   { to: '/trash', label: 'Trash', Icon: TrashIcon, feature: 'trash', module: 'trash' },
 ];
+
+// NRE - NRO section (kyc_master.nre_nro). All pages live under /nri.
+const NRI_ITEMS = [
+  { to: '/nri/dashboard', label: 'Dashboard', Icon: DashboardIcon },
+  { to: '/nri/applications', label: 'Applications', Icon: ClientsIcon },
+  { to: '/nri/ipv', label: 'IPV Verification', Icon: VideoIcon },
+  { to: '/nri/boid', label: 'BOID Numbers', Icon: TableIcon },
+];
+
+function NavItems({ items }) {
+  return items.map((item) => (item.children ? (
+    <NavGroup key={item.to} item={item} />
+  ) : (
+    <li key={item.to}>
+      <NavLink to={item.to} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+        <item.Icon />
+        <span>{item.label}</span>
+      </NavLink>
+    </li>
+  )));
+}
+
+// Section header (KYC - PRE KYC / NRE - NRO): the open section shows its menu below it.
+function SectionHeader({ label, active, onClick }) {
+  return (
+    <li>
+      <button type="button" className={`nav-section${active ? ' active' : ''}`} aria-expanded={active} onClick={onClick}>
+        <span>{label}</span>
+        <CaretDownIcon className={`ui-icon nav-caret${active ? ' open' : ''}`} />
+      </button>
+    </li>
+  );
+}
 
 function NavGroup({ item }) {
   const { pathname } = useLocation();
@@ -90,6 +124,11 @@ export default function Sidebar() {
   const { user } = useAuth();
   const items = NAV_ITEMS.filter((item) => (!item.feature || features[item.feature])
     && can(user, item.module));
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  // Users without NRE - NRO access see the KYC menu exactly as before (no section headers).
+  const hasNri = can(user, 'nri');
+  const inNri = pathname.startsWith('/nri');
 
   return (
     <aside className="sidebar">
@@ -101,16 +140,22 @@ export default function Sidebar() {
       </div>
 
       <ul className="nav-list">
-        {items.map((item) => (item.children ? (
-          <NavGroup key={item.to} item={item} />
-        ) : (
-          <li key={item.to}>
-            <NavLink to={item.to} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-              <item.Icon />
-              <span>{item.label}</span>
-            </NavLink>
-          </li>
-        )))}
+        {hasNri && items.length > 0 && (
+          <SectionHeader
+            label="KYC - PRE KYC"
+            active={!inNri}
+            onClick={() => { if (inNri) navigate(items.find((i) => i.to === '/dashboard')?.to || items[0].to); }}
+          />
+        )}
+        {(!hasNri || !inNri) && <NavItems items={items} />}
+        {hasNri && (
+          <SectionHeader
+            label="NRE - NRO"
+            active={inNri}
+            onClick={() => { if (!inNri) navigate('/nri/dashboard'); }}
+          />
+        )}
+        {hasNri && (inNri || items.length === 0) && <NavItems items={NRI_ITEMS} />}
       </ul>
     </aside>
   );
