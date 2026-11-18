@@ -172,7 +172,7 @@ export default function NriDashboard() {
             )}
       </Section>
 
-      <Section title="BOID">
+      <Section title="BOID" note={boid?.low ? `Low stock: ${boid.available} available (limit ${boid.limit})` : null}>
         {boid?.error ? <ErrorCard text={boid.error} />
           : boid && !boid.exists ? <ErrorCard text={`Table nre_nro.${boid.table} was not found`} />
             : (

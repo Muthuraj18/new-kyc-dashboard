@@ -4,10 +4,12 @@ import api from '../api';
 import { BellIcon } from './icons';
 
 const REFRESH_MS = 5 * 60 * 1000;
+// `to`: where clicking the alert goes. nriBoid is only in the summary for NRE - NRO users.
 const ITEMS = [
-  { key: 'stampPaper', label: 'Stamp Paper' },
-  { key: 'boid', label: 'BOID' },
-  { key: 'razorpayFee', label: 'Razorpay fee credit' },
+  { key: 'stampPaper', label: 'Stamp Paper', to: '/dashboard' },
+  { key: 'boid', label: 'BOID', to: '/dashboard' },
+  { key: 'nriBoid', label: 'NRI BOID', to: '/nri/boid' },
+  { key: 'razorpayFee', label: 'Razorpay fee credit', to: '/dashboard' },
 ];
 const rupees = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(v);
 
@@ -59,7 +61,7 @@ export default function NotificationBell() {
               <button
                 key={i.key}
                 className="notif-item"
-                onClick={() => { setOpen(false); navigate('/dashboard'); }}
+                onClick={() => { setOpen(false); navigate(i.to); }}
               >
                 <span className="notif-dot" />
                 <span>

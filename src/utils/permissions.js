@@ -13,7 +13,7 @@ export const MODULES = [
   { key: 'upload', label: 'Upload', levels: ['view', 'edit'] },
   { key: 'audit_logs', label: 'Audit Logs', levels: ['view'] },
   { key: 'trash', label: 'Trash', levels: ['view'] },
-  { key: 'nri', label: 'NRE - NRO', levels: ['view'] },
+  { key: 'nri', label: 'NRE - NRO', levels: ['view', 'edit'] },
 ];
 export const LEVELS = ['view', 'edit', 'delete'];
 const ADMIN_DENIED = { audit_logs: LEVELS, trash: LEVELS };
