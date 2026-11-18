@@ -3,13 +3,12 @@ import api from '../../api';
 import Layout from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 import { can } from '../../utils/permissions';
-import { BoidUpload } from '../Upload';
+import NriBoidUpload from '../../components/NriBoidUpload';
 
 // NRE - NRO > BOID Numbers: stock of nre_nro.boid_numbers (AVAILABLE = free), its low-stock
-// alert limit (same as the KYC Dashboard's BOID), and the BOID upload.
+// alert (limit = NRI_BOID_ALERT_LIMIT on the Lambda, default 25), and the BOID upload.
 const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 };
 const REFRESH_MS = 5 * 60 * 1000;
-const EDIT_ROLES = ['Super Admin', 'Admin'];
 
 function StatCard({ label, value, color }) {
   return (
@@ -22,54 +21,8 @@ function StatCard({ label, value, color }) {
   );
 }
 
-function LimitEditor({ limit, canEdit, onSaved }) {
-  const [draft, setDraft] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-
-  const save = async () => {
-    setBusy(true);
-    setMessage('');
-    try {
-      await api.put('/nri/boid/threshold', { value: draft });
-      setDraft('');
-      setMessage('Saved');
-      onSaved();
-    } catch (err) {
-      setMessage(err.response?.data?.error || 'Could not save the limit');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div style={{ marginTop: 10, fontSize: 13, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      <span>Alert below {limit}</span>
-      {canEdit && (
-        <>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            value={draft}
-            placeholder="New limit"
-            onChange={(e) => setDraft(e.target.value)}
-            style={{ width: 120 }}
-            aria-label="New limit for NRI BOID"
-          />
-          <button type="button" className="button secondary" disabled={busy || draft === ''} onClick={save}>
-            {busy ? 'Saving…' : 'Save limit'}
-          </button>
-          {message && <span>{message}</span>}
-        </>
-      )}
-    </div>
-  );
-}
-
 export default function NriBoid() {
   const { user } = useAuth();
-  const canEditLimit = EDIT_ROLES.includes(user?.role);
   const canUpload = can(user, 'nri', 'edit');
   const [data, setData] = useState(null);
 
@@ -105,11 +58,15 @@ export default function NriBoid() {
           <StatCard label="Available" value={data?.available} color={data?.low ? 'var(--danger)' : 'var(--success)'} />
         </div>
       )}
-      {data && data.limit !== undefined && <LimitEditor limit={data.limit} canEdit={canEditLimit} onSaved={load} />}
+      {data && data.limit !== undefined && (
+        <div style={{ marginTop: 10, fontSize: 13, color: 'var(--muted)' }} title="Set NRI_BOID_ALERT_LIMIT on the Lambda to change it">
+          Alert below {data.limit}
+        </div>
+      )}
 
       {canUpload && (
         <div className="nri-boid-upload">
-          <BoidUpload endpoint="/nri/boid/upload" onUploaded={load} />
+          <NriBoidUpload onUploaded={load} />
         </div>
       )}
     </Layout>

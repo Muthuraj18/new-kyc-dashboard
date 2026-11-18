@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { SunMoonIcon } from './icons';
 import NotificationBell from './NotificationBell';
+// NRE - NRO pages (/nri/...) get their own bell (NRI BOID only).
+import NriNotificationBell from './NriNotificationBell';
 import PasswordModal from './PasswordModal';
 
 function getInitialTheme() {
@@ -12,6 +14,7 @@ function getInitialTheme() {
 export default function Topbar({ title }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const isNri = useLocation().pathname.startsWith('/nri');
   const [theme, setTheme] = useState(getInitialTheme);
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordNotice, setPasswordNotice] = useState('');
@@ -30,7 +33,7 @@ export default function Topbar({ title }) {
     <div className="topbar">
       <h1>{title}</h1>
       <div className="topbar-actions">
-        <NotificationBell />
+        {isNri ? <NriNotificationBell /> : <NotificationBell />}
         <button
           className="dark-toggle"
           onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
