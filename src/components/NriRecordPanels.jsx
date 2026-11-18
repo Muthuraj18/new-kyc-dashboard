@@ -68,6 +68,47 @@ export function FieldsPanel({ title = 'Details', columns, record }) {
   );
 }
 
+// "Check S3 connection" (Super Admin / Admin): asks the Lambda whether it can reach the
+// documents bucket and shows what it finds, to sort out IAM / region / file naming.
+function S3Check() {
+  const [state, setState] = useState(null);
+  const run = () => {
+    setState({ loading: true });
+    api.get('/nri/s3-check')
+      .then(({ data }) => setState({ data }))
+      .catch((err) => setState({ error: err.response?.status === 403 ? 'Only Super Admin / Admin can run the S3 check.' : (err.response?.data?.error || 'S3 check failed') }));
+  };
+  const d = state?.data;
+  return (
+    <div className="nri-s3check">
+      <button type="button" className="link-btn" onClick={run} disabled={state?.loading}>
+        {state?.loading ? 'Checking S3…' : 'Check S3 connection'}
+      </button>
+      {state?.error && <div className="nri-error">{state.error}</div>}
+      {d && (
+        <div className="nri-s3check-result">
+          <div>Bucket <b className="mono">{d.bucket}</b> · region <b>{d.region.used || d.region.default}</b></div>
+          <div className={d.bucketAccess?.ok ? 'nri-ok' : 'nri-error'}>
+            {d.bucketAccess?.ok ? '✓ Lambda can reach the bucket' : `✗ ${d.bucketAccess?.message}`}
+          </div>
+          {Object.entries(d.areas).map(([k, a]) => (
+            <div key={k} className={a.ok ? '' : 'nri-error'}>
+              <b>{a.prefix}</b>{' '}
+              {a.ok
+                ? `${a.foldersInS3.length} folders${a.missingFolders.length ? `, missing: ${a.missingFolders.join(', ')}` : ''}`
+                : `✗ ${a.message}`}
+            </div>
+          ))}
+          <details className="module-long">
+            <summary>Sample file names per folder</summary>
+            <pre>{JSON.stringify(Object.fromEntries(Object.entries(d.areas).map(([k, a]) => [k, a.sampleFiles || a.message])), null, 2)}</pre>
+          </details>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const sizeText = (n) => (n == null ? '' : n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 function Preview({ group, fileIndex, onPickFile }) {
@@ -197,6 +238,7 @@ export function DocumentsPanels({ sources }) {
             </div>
           );
         })}
+        <S3Check />
       </div>
 
       <div className="detail-panel preview-panel">
